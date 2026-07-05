@@ -1,165 +1,60 @@
-﻿# 12 — Operations, Observability and Risks
+﻿# 12 — Эксплуатация, наблюдаемость и риски
 
-## Deployment Topology
+Агентная система состоит из нескольких зависимостей. Поэтому эксплуатация должна отвечать не только на вопрос “приложение запущено?”, но и на вопрос “может ли пользователь получить качественный ответ с источниками?”.
 
-### Docker Compose (`docker-compose.yml`)
+## 1. Уровни здоровья
 
-| Service | Image / build | Role |
-|---------|---------------|------|
-| `ea-app` | `ea-agent-platform` | FastAPI on `:8000` |
-| `ea-worker` | same | `ingestion/worker.py` poll consumer |
-| `ea-periodic-worker` | same | `scripts/run_periodic_ingestion.py` (300s loop) |
-| `ea-postgres` | postgres:16 | Jobs + optional sessions |
-| `ea-qdrant` | qdrant | Vector index |
-| `ea-minio` | minio | Optional object storage |
+| Уровень | Что проверяет | Управленческий смысл |
+|---------|---------------|----------------------|
+| Liveness | Процесс приложения отвечает | Сервис не умер. |
+| Readiness | Доступны ключевые зависимости | Сервис готов к пользовательскому сценарию. |
+| LLM health | Доступна модель ответа и embeddings | Агент может рассуждать и искать знания. |
+| Ingestion jobs | Обновляется ли база знаний | Корпоративная память поддерживается в актуальном состоянии. |
 
-**Evidence:** `docker-compose.yml`, `infra/helm/ea-agent-platform/`.
+## 2. Основные зависимости
 
-### Helm profiles
+| Зависимость | Роль | Что будет при деградации |
+|-------------|------|--------------------------|
+| LLM runtime | Формирует рассуждение и ответ | Ответ не будет сформирован. |
+| Embedding runtime | Строит смысловые представления | Retrieval и ingestion деградируют. |
+| Vector store | Хранит фрагменты и embeddings | Агент не найдет источники. |
+| Postgres | Jobs и session memory | Нарушится очередь и общая память. |
+| Object storage | Хранение исходных документов | Сложнее управлять источниками. |
 
-- `values-dev.yaml`, `values-on-prem.yaml`, `values-k8s.yaml`
-- **Needs verification:** full chart templates vs compose parity
+## 3. Наблюдаемость ответа
 
-## Processes & Background Jobs
+| Механизм | Что дает |
+|----------|----------|
+| SSE `tool_call` | Видно, что агент обратился к инструменту. |
+| SSE `sources` | Видно, какие источники найдены. |
+| SSE `introspect` | Видно trace для диагностики. |
+| Job status | Видно состояние ingestion. |
+| Readiness `blocking` | Видно, какая зависимость мешает готовности. |
 
-| Process | Trigger | Work |
-|---------|---------|------|
-| `ea-worker` | Poll `ingest_jobs` | `run_ingest_pipeline` |
-| `ea-periodic-worker` | Timer 300s | inbox → raw + pipeline |
-| In-app | HTTP | Agent, sync ingest |
+## 4. Риск-регистр
 
-**Known issue:** `ea-periodic-worker` restart loop in compose — **Needs verification** root cause.
+| Риск | Влияние | Митигирующее действие |
+|------|---------|-----------------------|
+| Нет auth/RBAC | Нельзя безопасно расширять аудиторию | Реализовать product shell с ролями. |
+| Устаревший corpus | Ответы могут быть формально корректны, но управленчески неверны | Ввести владельца базы знаний и регламент ingestion. |
+| Недоступны embeddings | Поиск и ingestion не работают | Мониторить readiness и LLM health. |
+| Недоступен vector store | Нет ответов с источниками | Alert по readiness dependency. |
+| Jobs зависают | Документы не попадают в базу знаний | Нужен recovery stale jobs. |
+| Нет workspace-изоляции | Возможна путаница областей знаний | Развивать workspaces и RBAC. |
 
-## Health Checks
+## 5. Операционный сценарий диагностики
 
-| Endpoint | Use |
-|----------|-----|
-| `GET /health/live` | Liveness — process up |
-| `GET /health/ready` | Readiness — dependency matrix |
-| `GET /health/llm` | Chat + embed provider snapshot |
-
-Readiness returns `blocking: true` when critical deps fail — orchestrator can use for scheduling.
-
-**Evidence:** `core/readiness.py` (нет отдельного `tests/test_health_endpoints.py` в репозитории).
-
-## Logging
-
-| Area | Mechanism |
-|------|-----------|
-| FastAPI / uvicorn | Standard access logs |
-| Agent stream | `introspect` SSE event with trace |
-| Worker | Python logging in `ingestion/worker.py` |
-| Structured metrics | **Not implemented** — Confirmed gap |
-
-**Inferred:** no centralized log aggregation configured in repo.
-
-## Smoke Test Suite
-
-| Script | Validates |
-|--------|-----------|
-| `scripts/smoke_compose.py` | Containers healthy |
-| `scripts/smoke_ingest.py` | Pipeline |
-| `scripts/smoke_retrieval.py` | similarity_search |
-| `scripts/smoke_agent_live.py` | Agent against live stack |
-| `scripts/smoke_chat_agent.py` | SSE stream |
-| `scripts/smoke_m7.py` | Async ingest + readiness |
-
-PowerShell wrappers: `scripts/smoke_*.ps1`
-
-## Retry & Resilience
-
-| Component | Policy |
-|-----------|--------|
-| HTTP clients | `core/retry_policy.py` — `RETRY_ATTEMPTS`, `RETRY_BACKOFF_SECONDS` |
-| Embed fallback | `LMSTUDIO_EMBED_FALLBACK_ENABLED` — dev compose often `true` |
-| Retrieval fallback | `RETRIEVAL_LOCAL_FALLBACK_ENABLED` — default false |
-| Ingest job | Worker marks `failed` on exception — no automatic retry queue |
-
-**Evidence:** `core/retry_policy.py`, `storage/ingest_jobs.py`.
-
-## Operational Runbooks (derived)
-
-### Start stack
-```bash
-docker compose up -d
+```mermaid
+flowchart TB
+  symptom["Симптом"] --> live["Проверить liveness"]
+  live --> ready["Проверить readiness"]
+  ready --> deps["Посмотреть blocking dependency"]
+  deps --> chat["Если LLM: chat/embedding контур"]
+  deps --> retrieval["Если vector store: retrieval контур"]
+  deps --> jobs["Если Postgres: jobs и memory"]
+  deps --> docs["Если ingestion: документы и worker"]
 ```
 
-### Rebuild after code change
-```bash
-docker compose build ea-app ea-worker
-docker compose up -d ea-app ea-worker
-```
+## 6. Что запомнить
 
-### Manual sync ingest
-```http
-POST /ingestion/run?async_mode=false&corpus_id=default
-```
-
-### Check KB size
-- Qdrant collection `<vector-collection-name>` point count
-- `data/chunks.json` length
-
-## Security Posture
-
-| Topic | Status |
-|-------|--------|
-| API authentication | **Not implemented** |
-| TLS | External to app (ingress) |
-| Secrets in env | `environment configuration template` — no vault integration in code |
-| MinIO credentials | Compose env |
-| Postgres | Compose env |
-| Prompt injection | No dedicated guardrails beyond tool loop limit |
-
-**Risk:** public `/chat/agent` and `/kb/documents` in dev compose.
-
-## Performance Characteristics
-
-| Path | Bottleneck |
-|------|------------|
-| Agent query | vLLM latency + tool rounds (max `AGENT_MAX_TOOL_CALLS`) |
-| search_kb | Embed query + Qdrant search |
-| Full ingest | Embed all chunks single batch |
-| Session memory | In-memory or Postgres per turn |
-
-**No** explicit SLA targets in code.
-
-## Scalability Limits
-
-| Dimension | Limit |
-|-----------|-------|
-| App replicas | Session store must be `postgres` for shared sessions |
-| Workers | Single consumer poll — **no** horizontal partition in code |
-| Qdrant | Single collection per corpus_id filter |
-| Corpus size | Limited by embed batch memory |
-
-## Risk Register
-
-| ID | Risk | Severity | Mitigation in code |
-|----|------|----------|-------------------|
-| R1 | No auth on API | High | Network isolation only |
-| R2 | LM Studio embed down blocks ingest/search | High | Optional embed fallback flag |
-| R3 | Full re-ingest cost on every run | Medium | Idempotent upsert by chunk_id |
-| R4 | `IngestRequest` fields ignored | Medium | Document + future wiring |
-| R5 | Legacy endpoints confuse integrators | Low | `legacy_deprecated` flag |
-| R6 | periodic-worker unstable | Medium | Ops fix needed |
-| R7 | Single-threaded ingest pipeline per job | Medium | Scale worker replicas; SKIP LOCKED supports multi-worker |
-| R8 | No metrics/tracing | Medium | Add Prometheus/OpenTelemetry |
-| R9 | Agent JSON parse failures | Medium | `parse_fallback` in close event |
-| R10 | Qdrant unavailable → empty retrieval | High | Readiness check; no graceful answer |
-
-## Backup & DR
-
-**Not implemented in codebase:**
-- Qdrant backup automation
-- Postgres backup
-- MinIO replication
-
-**Assumption / Needs verification:** ops procedures external to repo.
-
-## Evidence
-
-- `docker-compose.yml`
-- `runtime_settings.py`
-- `core/readiness.py`
-- `storage/ingest_jobs.py`
-- `NOTICE.md`
+Хорошая эксплуатация агентной системы — это контроль качества ответа, а не только контроль процесса. Система может быть “живой”, но не готовой дать проверяемый архитектурный ответ.

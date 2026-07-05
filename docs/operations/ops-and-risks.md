@@ -1,7 +1,24 @@
-﻿# Ops, Observability & Risks
+﻿# Эксплуатация, наблюдаемость и риски
 
-→ **[generated/12-ops-observability-and-risks.md](../generated/12-ops-observability-and-risks.md)**
+Эксплуатационный контур отвечает на вопрос: может ли агентная система сейчас дать пользователю качественный, трассируемый ответ. Для этого недостаточно знать, что API отвечает. Нужно понимать состояние LLM, embeddings, vector store, Postgres, storage и ingestion worker.
 
-Docker compose services, smoke suite, risk register, env groups.
+## Главные эксплуатационные идеи
+
+- `/health/live` проверяет, что приложение живо.
+- `/health/ready` проверяет, готов ли контур отвечать.
+- Ingestion jobs показывают состояние обновления базы знаний.
+- Trace и citations помогают разбирать качество ответа.
+
+## Ключевые риски
+
+| Риск | Почему важен |
+|------|--------------|
+| Недоступны embeddings | Новые документы не индексируются, поиск деградирует. |
+| Недоступен vector store | Агент теряет доступ к источникам. |
+| Устаревшая база знаний | Ответ формально работает, но управленчески неверен. |
+| Нет auth/RBAC | Нельзя безопасно масштабировать на несколько команд. |
+| Нет workspace-изоляции | Возникает риск смешивания областей знаний. |
+
+Детальный справочник: [generated/12-ops-observability-and-risks.md](../generated/12-ops-observability-and-risks.md).
 
 [← Operations](index.md) · [Troubleshooting](../navigation/troubleshooting-map.md)

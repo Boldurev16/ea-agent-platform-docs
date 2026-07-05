@@ -1,34 +1,32 @@
 # ea-agent-platform-docs
 
-Public technical documentation for **ea-agent-platform** — corporate EA agent with RAG, tool-loop runtime, and document ingestion.
+Учебная документация по архитектуре агентной системы для управления корпоративной архитектурой.
 
-**GitHub Pages:** publish from the `/docs` folder.  
-**Owner:** [Boldurev16](https://github.com/Boldurev16)
+Материал описывает платформу **ea-agent-platform** как практический пример: единый агент корпоративной архитектуры, корпоративная база знаний, поиск с источниками, потоковый чат и промышленный контур загрузки документов. Текст рассчитан на русскоязычную аудиторию Норникель Спутник: C-level, руководителей архитектурной функции, enterprise architects, product owners и инженерные команды.
 
-## Start here
+## С чего начать
 
-- **Documentation site entry:** [`docs/index.md`](docs/index.md)
-- **Publishing guide:** [`docs/publishing-guide.md`](docs/publishing-guide.md)
-- **Sanitization report:** [`docs/publishing-sanitization-report.md`](docs/publishing-sanitization-report.md)
-- **Project structure (high-level):** [`project-structure/folder-structure.md`](project-structure/folder-structure.md)
+- Главная страница курса: [`docs/index.md`](docs/index.md)
+- Маршруты чтения по ролям: [`docs/navigation/reading-paths.md`](docs/navigation/reading-paths.md)
+- Архитектурная шпаргалка: [`docs/navigation/cheat-sheet.md`](docs/navigation/cheat-sheet.md)
+- Глоссарий: [`docs/navigation/glossary.md`](docs/navigation/glossary.md)
+- Правила публикации и санитизации: [`docs/publishing-sanitization-report.md`](docs/publishing-sanitization-report.md)
 
-## What this repository contains
+## Что находится в репозитории
 
-- Architecture, runtime, memory, retrieval, and ingestion documentation
-- Mermaid diagram legends and audit report
-- Navigation and troubleshooting maps
+- Учебные разделы по архитектуре, runtime, памяти, поиску, ingestion и эксплуатации.
+- Легенды к Mermaid-диаграммам, чтобы схемы читались как учебный материал, а не как технический артефакт.
+- Навигационные карты, troubleshooting и audit-разделы.
+- Санитизированные справочные материалы в `docs/generated/`.
 
-## What this repository does **not** contain
+## Чего здесь нет
 
-- Application source code
-- Secrets, credentials, or environment files
-- Internal operational runbooks and dated internal snapshots
+- Исходного кода приложения.
+- Секретов, учетных данных и окружений.
+- Полных внутренних промптов, runbook и приватных планов.
 
-Implementation code lives in a separate private repository.
+Документация сохраняет архитектурную точность, но убирает детали, которые не нужны для обучения и могут раскрывать внутреннюю реализацию.
 
-## Enable GitHub Pages
+## Публикация
 
-1. Create repository `ea-agent-platform-docs` under **Boldurev16**.
-2. Push this folder.
-3. **Settings → Pages →** branch `main`, folder **`/docs`**.
-4. Site URL: `https://boldurev16.github.io/ea-agent-platform-docs/`
+Репозиторий предназначен для публикации как GitHub Pages из каталога `/docs`. Инструкция: [`docs/publishing-guide.md`](docs/publishing-guide.md).

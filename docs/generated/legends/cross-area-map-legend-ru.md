@@ -52,16 +52,16 @@ End-to-end от файлов до Qdrant. Trigger: `POST /ingestion/run` (async 
 | 2 | Claim | `claim_next_ingest_job` (`FOR UPDATE SKIP LOCKED`) → `running` | [worker-job-states](worker-job-states-legend-ru.md) | audit C12 |
 | 3 | Worker | `ingestion/worker.py::process_next_job` | [worker-job-states](worker-job-states-legend-ru.md) | [08-ingestion-worker](../08-ingestion-worker.md) |
 | 4 | Optional MinIO sync | `sync_sources_to_storage` (`STORAGE_PROVIDER=minio`) | [ingestion-pipeline](ingestion-pipeline-legend-ru.md) | audit R14 |
-| 5 | Load parse path | **`data/raw/`** локально — не MinIO read | [ingestion-pipeline](ingestion-pipeline-legend-ru.md) | [09-ingestion-pipeline](../09-ingestion-pipeline.md) |
+| 5 | Источник разбора | Локальный каталог исходных документов; MinIO здесь не является read-path | [ingestion-pipeline](ingestion-pipeline-legend-ru.md) | [09-ingestion-pipeline](../09-ingestion-pipeline.md) |
 | 6 | ETL | load → parse → normalize → `chunk_records(220)` | [ingestion-pipeline](ingestion-pipeline-legend-ru.md) | audit C15 |
 | 7 | Embed batch | `embed_texts` (Nomic `search_document:`) | [ingestion-pipeline](ingestion-pipeline-legend-ru.md) | audit C5, U4 |
 | 8 | Qdrant upsert | `upsert_embeddings` batches of 100 | [ingestion-pipeline](ingestion-pipeline-legend-ru.md) | audit C16–C17 |
 | 9 | Job complete | `complete_ingest_job` → status `done` + report | [worker-job-states](worker-job-states-legend-ru.md) | audit C13, R12 |
 | 10 | Artifacts | `ingestion_report.json`, `chunks.json` | [ingestion-pipeline](ingestion-pipeline-legend-ru.md) | [09-ingestion-pipeline](../09-ingestion-pipeline.md) |
 
-**Сводная строка:** Operator → `POST /ingestion/run` → `ingest_jobs` → worker → `run_ingest_pipeline` → `data/raw` → embed → Qdrant → report.
+**Сводная строка:** оператор → `POST /ingestion/run` → `ingest_jobs` → worker → `run_ingest_pipeline` → исходные документы → embeddings → Qdrant → отчет.
 
-**Periodic path (отдельно):** `ea-periodic-worker` → inbox → raw (только `.pptx`, `.pdf`, `.csv`, `.xlsx`, `.xls`, `.docx`, audit R6) → `run_ingest()` → pipeline (audit R7).
+**Периодический путь (отдельно):** periodic worker → входной каталог → поддержанные форматы документов → `run_ingest()` → pipeline.
 
 **Быстрые проверки:** `GET /ingestion/jobs/{job_id}`, `data/ingestion_report.json`, smoke `scripts/smoke_ingest.ps1`, `scripts/smoke_m7.ps1`.
 
@@ -93,12 +93,12 @@ End-to-end от файлов до Qdrant. Trigger: `POST /ingestion/run` (async 
 | **Enqueue** | Job не создаётся | Postgres down → JSONL only; worker не читает JSONL | Postgres healthy; `ea-postgres` | [08-ingestion-worker](../08-ingestion-worker.md) | — |
 | **Claim / stale `running`** | Job вечно `running` | Worker crash после claim; **нет recovery** | Postgres `ingest_jobs`; restart worker; manual fix | [08-ingestion-worker](../08-ingestion-worker.md) | U3, R16 |
 | **Worker process** | `ea-worker` restart loop | Pipeline exception → `fail_ingest_job` + re-raise | Логи worker; `error` в job row | [08-ingestion-worker](../08-ingestion-worker.md) | U2 |
-| **No parseable docs** | Job `failed` | Пустой / неподдерживаемый `data/raw/` | `ingestion_skipped.json`; добавить файлы | [09-ingestion-pipeline](../09-ingestion-pipeline.md) | C14 |
+| **Нет документов для разбора** | Job `failed` | Пустой или неподдерживаемый источник документов | Проверить skipped report и добавить файлы | [09-ingestion-pipeline](../09-ingestion-pipeline.md) | C14 |
 | **MinIO sync** | Sync empty | `LocalStorageProvider` no-op; MinIO not configured | `STORAGE_PROVIDER`; optional step | [09-ingestion-pipeline](../09-ingestion-pipeline.md) | R14, R15 |
 | **embed_texts** | Ingest fail / slow | LM Studio down; huge single batch | `LMSTUDIO_EMBED_FALLBACK_ENABLED`; embed health | [09-ingestion-pipeline](../09-ingestion-pipeline.md) | U4, U5 |
 | **Qdrant upsert** | Job `failed` | Qdrant unreachable | `ea-qdrant`; worker depends qdrant started | [12-ops](../12-ops-observability-and-risks.md) | R9 |
 | **Job status API** | `completed` vs `done` | JSONL legacy vs Postgres `done` | Poll until `done` \| `failed` | [10-data-contracts](../10-data-contracts-and-models.md) | R12 |
-| **Periodic worker** | Restart loop, файлы не в raw | Only 6 extensions; no qdrant in depends_on | `periodic_ingest.py` `TRACKED_EXTENSIONS` | [09-ingestion-pipeline](../09-ingestion-pipeline.md) | U1, R6 |
+| **Periodic worker** | Restart loop, файлы не попадают в обработку | Поддерживается ограниченный набор расширений | Проверить правила periodic ingest | [09-ingestion-pipeline](../09-ingestion-pipeline.md) | U1, R6 |
 | **Re-ingest** | Долго каждый раз | Full reprocess, no delta | Ожидаемо по коду | [09-ingestion-pipeline](../09-ingestion-pipeline.md) | C14 |
 
 ### Shared (Qdrant + Embed)

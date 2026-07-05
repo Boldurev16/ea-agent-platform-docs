@@ -1,152 +1,64 @@
-﻿# 11 — API and Integration Points
+﻿# 11 — API и интеграционные точки
 
-Base URL (default): `<application-base-url>`
+API платформы отражает основные контуры системы: пользовательский чат, обновление базы знаний и эксплуатационная диагностика.
 
-**Authentication:** none — Confirmed gap.
+## 1. Основные группы API
 
-## Health & Ops
+| Группа | Назначение |
+|--------|------------|
+| Chat | Получить ответ агента. |
+| Ingestion | Обновить корпоративную базу знаний. |
+| Health | Проверить готовность системы и зависимостей. |
+| Legacy | Совместимость со старым контуром, не основной путь. |
 
-| Method | Path | Response | Module |
-|--------|------|----------|--------|
-| GET | `/health` | `{"status":"ok"}` | `core/readiness.py::check_liveness` |
-| GET | `/health/live` | same | `app/api/main.py` |
-| GET | `/health/ready` | `{status, dependencies, blocking}` | `core/readiness.py::check_readiness` |
-| GET | `/health/llm` | runtime + embeddings snapshot | `llm/runtime_health.py` |
+## 2. Chat API
 
-### Readiness dependencies checked
+`POST /chat/agent` — основной пользовательский endpoint. Он возвращает Server-Sent Events, чтобы пользователь видел ход формирования ответа.
 
-- `postgres` (if enabled)
-- `qdrant` (vectorstore ping)
-- `embeddings` (Nomic health)
-- `storage` (if `STORAGE_PROVIDER=minio`)
+| Событие | Что показывает |
+|---------|----------------|
+| `status` | Старт обработки. |
+| `tool_call` | Агент обратился к инструменту. |
+| `sources` | Найдены источники. |
+| `text` | Фрагмент ответа. |
+| `introspect` | Trace для диагностики. |
+| `close` | Итоговый статус. |
 
-## Primary Agent APIs
+## 3. Ingestion API
 
-### `POST /chat/agent` — **Primary integration**
+| Endpoint | Смысл |
+|----------|-------|
+| `POST /ingestion/run` | Создать задачу обновления базы знаний. |
+| `GET /ingestion/jobs/{job_id}` | Получить статус обработки. |
 
-| Aspect | Detail |
-|--------|--------|
-| Content-Type | `application/json` request |
-| Response | `text/event-stream` |
-| Body | `ChatAgentRequest`: `query`, `session_id` (default `default`), `include_debug` (default true) |
+Для бизнес-пользователя это будущая основа document management UI. Для эксплуатации — точка контроля, где видно, зависла ли обработка.
 
-**SSE events:** `status`, `tool_call`, `sources`, `text`, `introspect`, `close`
+## 4. Health API
 
-**Handler:** `app/api/main.py::chat_agent` → `iter_agent_events` → `format_sse`
+| Endpoint | Вопрос, на который отвечает |
+|----------|-----------------------------|
+| `GET /health/live` | Приложение как процесс живо? |
+| `GET /health/ready` | Система готова дать качественный ответ? |
+| `GET /health/llm` | Доступны ли runtime LLM и embeddings? |
 
-**Example:**
-```http
-POST /chat/agent
-Content-Type: application/json
+Важно: readiness может быть `degraded`, даже если HTTP-ответ успешный. Это нормальный design: endpoint должен быть доступен, чтобы объяснить, какая зависимость деградировала.
 
-{"query": "Что в техрадаре EA?", "session_id": "user-1", "include_debug": true}
+## 5. Legacy API
+
+Старые endpoint могут оставаться для совместимости, но primary path — `POST /chat/agent`. Legacy-контуры могут использовать pre-RAG и давать отличающиеся результаты.
+
+## 6. Интеграционная логика
+
+```mermaid
+flowchart TB
+  ui["UI или внешний клиент"] --> chat["POST /chat/agent"]
+  chat --> agent["Agent runtime"]
+  operator["Оператор KB"] --> ingest["POST /ingestion/run"]
+  ingest --> worker["Ingestion worker"]
+  support["Support"] --> health["Health endpoints"]
+  health --> deps["LLM, embeddings, vector store, database, storage"]
 ```
 
-### `POST /tasks/agent` — Sync JSON
+## 7. Что запомнить
 
-Вызывает `run_agent(payload.query)` — **без** `session_id`; server memory всегда `session_id="default"`.
-
-Returns:
-```json
-{
-  "answer": "...",
-  "citations": [...],
-  "trace": [...],
-  "tool_calls": 1,
-  "status": "completed",
-  "provider": "vllm",
-  "model": "..."
-}
-```
-
-**Use case:** tests, simple integrations without SSE.
-
-## Knowledge Base & Ingestion
-
-| Method | Path | Purpose |
-|--------|------|---------|
-| POST | `/kb/documents` | Write text file to `data/raw/{filename}` |
-| POST | `/ingestion/run` | Start ingest (`async_mode` query param, `corpus_id`) |
-| GET | `/ingestion/jobs/{job_id}` | Job status |
-
-### Async ingest response (default `INGEST_ASYNC_DEFAULT=true`)
-
-```json
-{
-  "job_id": "uuid",
-  "status": "queued",
-  "corpus_id": "default",
-  "async": true
-}
-```
-
-### Sync ingest (`async_mode=false`)
-
-Returns full `ingestion_report` dict from `run_ingest_pipeline`.
-
-## Legacy APIs (deprecated)
-
-| Method | Path | Notes |
-|--------|------|-------|
-| POST | `/tasks/orchestrate` | `legacy_deprecated: true` на **корне** response |
-| POST | `/tasks/panel` | pre-RAG + 4 roles; `legacy_deprecated` только в nested `orchestrator` |
-| POST | `/tasks/role/{architect,auditor,economist,analyst}` | pre-RAG via `document_retrieve` |
-| GET | `/tasks/orchestrate/debug-schema` | JSON schema for legacy orchestrate response |
-
-**Recommendation:** migrate to `/chat/agent`.
-
-**Memory:** нет HTTP endpoint для очистки server-side session memory. UI «Очистить историю» очищает только localStorage `dialogTurns`, не `chat_turns` / `ShortTermMemory`.
-
-## UI
-
-| Method | Path | Purpose |
-|--------|------|---------|
-| GET | `/ui` | HTML dev panel |
-| GET | `/ui.js` | Embedded JS (SSE client, ingest poll) |
-
-## External Integration Dependencies
-
-Integrators must ensure:
-
-| Service | Required for |
-|---------|--------------|
-| vLLM | Chat/agent (`RUNTIME_PROVIDER=vllm`) |
-| LM Studio | Embeddings (ingest + search_kb) |
-| Qdrant | Retrieval |
-| Postgres | Async ingest queue, optional sessions |
-| MinIO | Optional object storage sync |
-
-## Integration Patterns
-
-### SSE client
-
-1. `POST /chat/agent` with `Accept: text/event-stream`
-2. Parse lines `event:` / `data:` JSON
-3. Accumulate `text` chunks until `close`
-4. Read `citations` from `sources` or `close.data`
-
-**Reference:** `app/api/sse.py`, UI JS in `main.py`.
-
-### Async ingest polling
-
-1. `POST /ingestion/run`
-2. Loop `GET /ingestion/jobs/{job_id}` until `status` in `done|failed`
-
-**Reference:** UI `pollIngestJob` in `main.py`.
-
-## Error Responses
-
-- FastAPI validation errors — 422 for invalid body
-- Agent LLM down — SSE `close` with `status=error` (not HTTP 5xx)
-- Readiness degraded — HTTP 200 with `status: degraded` — **Confirmed** (not 503)
-
-## Evidence
-
-- `app/api/main.py`
-- `tests/test_user_interface_endpoints.py`
-- `tests/test_chat_agent_stream.py`
-
-## Open Questions
-
-- **Needs verification:** CORS configuration for embed/widget (not present)
-- Rate limiting — not implemented
+API платформы разделяет пользовательский поток, поток обновления знаний и эксплуатационный поток. Это важно: один и тот же сервис должен быть удобен пользователю, оператору базы знаний и support-команде.

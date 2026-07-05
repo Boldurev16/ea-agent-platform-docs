@@ -1,9 +1,29 @@
-﻿# Agent Runtime
+﻿# Agent runtime: управляемый цикл рассуждения
 
-→ **[generated/04-agent-runtime.md](../generated/04-agent-runtime.md)**
+Agent runtime — это сердце платформы. Он превращает пользовательский вопрос в управляемую последовательность шагов: подготовить контекст, вызвать LLM, понять намерение модели, выполнить инструмент при необходимости, вернуть ответ и сохранить контекст.
 
-`orchestration/agent_stream.py::iter_agent_events` — JSON tool loop, `ToolCallDeduper`, SSE events. Sync: `run_agent` / `POST /tasks/agent` (без `session_id` — audit R3).
+## Простая модель
 
-Primary API: `POST /chat/agent`.
+```mermaid
+flowchart TB
+  question["Вопрос"] --> context["Контекст сессии"]
+  context --> llm["LLM"]
+  llm --> step["Шаг: tool или final"]
+  step -->|"tool"| tool["Выполнить инструмент"]
+  tool --> llm
+  step -->|"final"| answer["Ответ пользователю"]
+```
+
+## Почему runtime важен
+
+Без runtime LLM была бы просто генератором текста. Runtime добавляет управляемость: ограничивает число tool calls, собирает trace, возвращает sources, сохраняет память и завершает поток структурированным событием `close`.
+
+## Главный пользовательский API
+
+`POST /chat/agent` — потоковый чат. Ответ приходит событиями: `status`, `tool_call`, `sources`, `text`, `introspect`, `close`.
+
+## Детальный разбор
+
+См. [generated/04-agent-runtime.md](../generated/04-agent-runtime.md).
 
 [← Runtime](index.md) · [API](../operations/api.md)

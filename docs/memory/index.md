@@ -1,15 +1,15 @@
-﻿# Memory
+﻿# Память
 
-Session memory (short-term turns).
+Раздел объясняет краткосрочный контекст диалога и его отличие от корпоративной базы знаний.
 
 | Документ | Описание |
 |----------|----------|
-| [Session memory](session-memory.md) | Read/write, Postgres, UI vs server |
+| [Session memory](session-memory.md) | Чтение/запись истории, Postgres, UI history vs server memory |
 
-**Generated:** [generated/05-memory.md](../generated/05-memory.md)
+**Справочный слой:** [generated/05-memory.md](../generated/05-memory.md)
 
-**Legend:** [Memory lifecycle](../legends/memory-lifecycle.md)
+**Легенда:** [Memory lifecycle](../legends/memory-lifecycle.md)
 
-**Audit:** R4, R5 — `dialogTurns` ≠ server memory; clear UI не очищает server.
+**Важно:** `dialogTurns` в UI не равен server memory; очистка UI history не обязательно очищает серверный контекст.
 
 [← Главная](../index.md)

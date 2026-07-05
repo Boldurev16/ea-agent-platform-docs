@@ -1,17 +1,17 @@
 ﻿# Overview
 
-Обзор продукта и требования AS-IS (reverse-engineered из кода).
+Раздел объясняет назначение платформы, бизнес-ценность и границы текущего MVP.
 
 | Документ | Описание |
 |----------|----------|
-| [Executive overview](executive-overview.md) | Summary, scope, stakeholders |
-| [PRD (AS-IS)](prd.md) | Journeys, NFR, glossary |
+| [Executive overview](executive-overview.md) | Зачем компании агентная система EA |
+| [PRD](prd.md) | Пользовательские сценарии, границы MVP и product gaps |
 
-**Generated source:**
+**Справочный слой:**
 
 - [generated/01-executive-overview.md](../generated/01-executive-overview.md)
 - [generated/02-prd.md](../generated/02-prd.md)
 
-**Note:** Milestone and product roadmap details are maintained in the private implementation repository.
+Roadmap и внутренние планы не публикуются в этом репозитории.
 
 [← Главная](../index.md)

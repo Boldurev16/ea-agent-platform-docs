@@ -1,95 +1,72 @@
-﻿# 01 — Executive Overview
+﻿# 01 — Executive overview
 
-## Название системы
+## Назначение системы
 
-**ea-agent-platform** — self-hosted платформа корпоративного архитектора (EA) с RAG и tool-loop агентом.
+**ea-agent-platform** — self-hosted платформа для агентного управления корпоративной архитектурой. Она соединяет LLM, корпоративную базу знаний, инструменты поиска, потоковый чат и промышленный ingestion документов.
 
-## Сводка (один абзац)
+## Сводка для руководителя
 
-Платформа индексирует корпоративные документы (PDF, Office, PPTX, TXT) в Qdrant через Nomic embeddings, предоставляет единого AI-консультанта corporate EA function (промпт «корпоративный архитектор») с on-demand поиском в KB через tool `search_kb`, стриминг-чат по SSE (`POST /chat/agent`) и операционный стек Docker (FastAPI, Postgres, MinIO, Qdrant, vLLM). Backend consolidation (M0–M7) завершена; product UI — минимальный dev panel `/ui`.
+Платформа создает единый диалоговый контур, через который пользователь может задавать вопросы по архитектурным материалам компании и получать ответы с проверяемыми источниками. Главная ценность — не “чат-бот”, а управляемая архитектурная функция: знания становятся доступными, ответы становятся трассируемыми, а процесс включения новых документов становится воспроизводимым.
 
-## Проблема
+## Управленческая проблема
 
-- Разрозненные EA-материалы (политики, техрадар, CMDB, презентации) сложно использовать в консультациях.
-- Legacy 4-role pipeline (architect/auditor/economist/analyst) — сложный и с pre-RAG.
-- Нужен единый консультант с цитированием источников и self-hosted inference.
+| Симптом | Риск для компании | Как отвечает платформа |
+|---------|-------------------|------------------------|
+| Архитектурные знания распределены по файлам и экспертам | Решения принимаются медленно и зависят от носителей знания | Документы индексируются в единой базе знаний |
+| AI-ответы без источников вызывают недоверие | Невозможно использовать ответ в управленческом решении | Ответ сопровождается citations |
+| Несколько “ролей” и сценариев усложняют контур | Пользователь не понимает, к кому обращается | Используется единый агент корпоративной архитектуры |
+| Поиск перед каждым ответом создает шум | Простые вопросы становятся медленными и перегруженными контекстом | RAG вызывается on-demand через `search_kb` |
 
-## Целевые акторы
+## Целевые роли
 
-| Актор | Роль |
-|-------|------|
-| Бизнес-пользователь EA | Вопросы по архитектуре, политикам, радару |
-| Оператор KB | Загрузка документов, запуск ingest |
-| Backend/ML engineer | Развитие agent, retrieval, pipeline |
-| SRE / ops | Compose, health, smoke |
+| Роль | Что получает |
+|------|--------------|
+| C-level / руководитель функции | Быструю проверяемую позицию по архитектурному вопросу |
+| Enterprise architect | Диалоговый доступ к политикам, стандартам, техрадару и решениям |
+| Оператор базы знаний | Управляемый контур загрузки и переиндексации документов |
+| Инженерная команда | Расширяемый runtime, tools и retrieval-контур |
+| Эксплуатация | Health, readiness и диагностику зависимостей |
 
-## Бизнес-цели (реализованные)
+## Что уже реализовано
 
-1. Единый EA-агент вместо 4 ролей — **Confirmed:** `prompts/corporate_architect.py`, `orchestration/agent_runtime.py`
-2. RAG on-demand (не mandatory pre-step) — **Confirmed:** `tools/builtin/search_kb.py`
-3. Citations в ответах — **Confirmed:** `retrieval/citations.py`, SSE event `sources`
-4. Self-hosted LLM (vLLM Qwen) — **Confirmed:** `llm/vllm_client.py`, `RUNTIME_PROVIDER=vllm`
-5. Production-local deploy — **Confirmed:** `docker-compose.yml`, smoke suite
+| Возможность | Значение для бизнеса |
+|-------------|----------------------|
+| Единый агент корпоративной архитектуры | Один язык ответа и единая логика консультации |
+| `search_kb` как инструмент агента | Контролируемый доступ к корпоративной базе знаний |
+| Citations | Проверяемость и трассируемость |
+| SSE streaming | Пользователь видит ответ по мере формирования |
+| Async ingestion | Документы включаются в контур без блокировки интерфейса |
+| Provider portability | Инфраструктурные зависимости можно заменять конфигурацией |
+| Readiness/liveness | Эксплуатация понимает, жив ли сервис и готов ли он отвечать |
 
-## Технические цели (реализованные)
+## Что остается продуктовым развитием
 
-- Data plane: Nomic + Qdrant + MinIO — M2
-- Async ingest queue (Postgres) — M7
-- Provider portability (Protocol + env swap) — M7
-- SSE streaming UX — M6
-
-## In-scope (AS-IS)
-
-| Capability | Evidence |
-|------------|----------|
-| Ingest multi-format docs | `ingestion/loaders/text_loader.py` |
-| Vector search + citations | `retrieval/similarity_search.py` |
-| Agent tool loop | `orchestration/agent_stream.py` |
-| SSE chat API | `app/api/main.py::chat_agent` |
-| Sync agent API | `POST /tasks/agent` |
-| Async ingest jobs | `storage/ingest_jobs.py`, `ingestion/worker.py` |
-| Health probes | `/health/live`, `/health/ready`, `/health/llm` |
-| Legacy 4-role API (deprecated) | `/tasks/panel`, `/tasks/orchestrate` |
-
-## Out-of-scope (не реализовано)
-
-| Capability | Статус |
-|------------|--------|
-| Workspaces / multi-tenant UI | Phase 2 P1 |
-| Auth / RBAC | Phase 2 P1 |
-| Confluence / SQL connectors | Phase 2 P2 — README stubs only |
-| MCP, embed widget | Phase 2 P3–P4 |
-| Full React product UI | Non-goal |
-| BM25 / sparse retrieval | Non-goal в master plan |
-
-## Ключевые метрики (операционный снимок)
-
-- **Chunks в Qdrant:** environment-specific snapshot (see ingestion report in deployment environment)
-- **Chunk size:** 220 chars, no overlap — `ingestion/chunking/text_chunker.py`
-- **Smoke M0–M7:** PASS
+| Направление | Зачем нужно |
+|-------------|-------------|
+| Workspaces | Изоляция команд, проектов и областей знаний |
+| Auth / RBAC | Управление доступом и ответственностью |
+| Document management UI | Самостоятельная загрузка и сопровождение базы знаний |
+| Confluence / SQL connectors | Подключение реальных корпоративных источников |
+| MCP / agent skills | Расширение агента без изменения ядра |
+| Embed widget | Встраивание консультанта в корпоративный портал |
 
 ## Архитектурный принцип
 
 ```mermaid
 flowchart LR
-  User --> App
-  App --> AgentRuntime
-  AgentRuntime -->|optional| search_kb
-  search_kb --> Qdrant
-  AgentRuntime --> vLLM
+  user["Пользователь"] --> agent["Агент корпоративной архитектуры"]
+  agent -->|"Нужен источник"| searchKb["search_kb"]
+  searchKb --> knowledge["Корпоративная база знаний"]
+  knowledge --> citations["Фрагменты и источники"]
+  citations --> agent
+  agent --> answer["Проверяемый ответ"]
 ```
 
-RAG **не** выполняется до LLM — только через tool loop.
+RAG не выполняется автоматически перед каждым ответом. Агент сам решает, когда нужен поиск. Это делает контур ближе к работе опытного архитектора: сначала понять вопрос, затем обратиться к источнику, если без него нельзя дать надежный ответ.
 
-## Ссылки
+## Как читать дальше
 
-- Master plan: internal implementation repository (not published)
-- Phase 2: high-level proposals in private planning docs
-- Референс UX: `CloneRepo/repos/anything-llm`
-
-## Evidence (ключевые entrypoints)
-
-- `app/api/main.py` — FastAPI app
-- `orchestration/agent_stream.py::iter_agent_events`
-- `ingestion/pipeline.py::run_ingest_pipeline`
-- `docker-compose.yml`
+- Для бизнес-контекста: [PRD](02-prd.md)
+- Для системной картины: [System architecture](03-system-architecture.md)
+- Для runtime: [Agent runtime](04-agent-runtime.md)
+- Для терминов: [Glossary](../navigation/glossary.md)

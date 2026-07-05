@@ -1,225 +1,102 @@
-﻿# 04 — Agent Runtime Deep Dive
+﻿# 04 — Agent runtime
 
-## Purpose
+Agent runtime — это управляемый цикл рассуждения агента. Он отделяет “модель умеет генерировать текст” от “платформа умеет дать проверяемый архитектурный ответ”.
 
-Agent Runtime — оркестрация **single corporate architect** через JSON tool loop: LLM выбирает `tool` или `final`, tools выполняются синхронно, контекст накапливается в `messages`, результат стримится как SSE.
+## 1. Роль runtime
 
-**Primary modules:**
-- `orchestration/agent_stream.py::iter_agent_events` — generator + SSE events
-- `orchestration/agent_runtime.py::run_agent` — sync wrapper
-- `parsers/agent_response.py::parse_agent_step` — JSON step parser
-- `prompts/corporate_architect.py` — system prompt + tool schema
+Runtime отвечает за пять задач:
 
-## Request / Session Lifecycle
+1. собрать контекст вопроса;
+2. вызвать LLM;
+3. понять, хочет ли модель дать ответ или вызвать инструмент;
+4. выполнить инструмент и вернуть результат обратно в рассуждение;
+5. завершить ответ потоковыми событиями и сохранить контекст сессии.
+
+## 2. Жизненный цикл запроса
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Started: yield status/started
-    Started --> LLMCall: build_messages + generate
-    LLMCall --> ParseStep: parse_agent_step
-    ParseStep --> Final: action=final
-    ParseStep --> ToolExec: action=tool
-    ParseStep --> ParseFallback: AgentParseError
-    ToolExec --> DedupeCheck: should_block?
-    DedupeCheck --> LLMCall: append tool result
-    DedupeCheck --> Blocked: dedupe message
-    Blocked --> LLMCall
-    ToolExec --> MaxRounds: tool_calls >= limit
-    LLMCall --> LLMError: result is None
-    Final --> StreamText: chunk answer
-    ParseFallback --> StreamText
-    MaxRounds --> StreamText
-    LLMError --> Close
-    StreamText --> Introspect: optional trace
-    Introspect --> PersistMemory: if completed
-    PersistMemory --> Close: yield close event
-    Close --> [*]
+  [*] --> Started: получен вопрос
+  Started --> BuildContext: история + текущий запрос
+  BuildContext --> LLMCall: вызов модели
+  LLMCall --> ParseStep: разбор шага
+  ParseStep --> ToolCall: action=tool
+  ParseStep --> Final: action=final
+  ToolCall --> Dedupe: проверка дубля
+  Dedupe --> ExecuteTool: допустимый вызов
+  ExecuteTool --> LLMCall: результат инструмента
+  Final --> StreamAnswer: текстовые чанки
+  StreamAnswer --> Trace: источники и introspect
+  Trace --> SaveMemory: сохранить успешный ход
+  SaveMemory --> Close: close event
+  Close --> [*]
 ```
 
-## State Model
+## 3. Почему нужен tool loop
 
-| Variable | Scope | Meaning |
-|----------|-------|---------|
-| `messages` | Per request | OpenAI-style chat for LLM |
-| `trace` | Per request | Tool call audit list |
-| `citations` | Per request | Accumulated from tool results |
-| `tool_calls` | Per request | Counter of tool invocations |
-| `session_id` | Cross-request | Memory key |
-| `status` | Per request | `completed`, `error`, `max_rounds` |
+LLM не должна самостоятельно “угадывать” содержание корпоративных документов. Если ей нужен источник, она вызывает инструмент. Tool loop создает управляемую рамку:
 
-**No persistent agent state** beyond memory turns — Confirmed.
+- какие инструменты доступны;
+- сколько раз их можно вызывать;
+- какие аргументы переданы;
+- какие источники получены;
+- какой trace останется после ответа.
 
-## Step Execution Loop (pseudocode)
+## 4. События streaming-ответа
 
-Reconstructed from `iter_agent_events`:
+| Событие | Что означает |
+|---------|--------------|
+| `status` | Запрос принят, runtime начал работу. |
+| `tool_call` | Агент решил обратиться к инструменту. |
+| `sources` | Появились источники, найденные через retrieval. |
+| `text` | Очередной фрагмент ответа пользователю. |
+| `introspect` | Техническая трасса: tools, аргументы, preview результата. |
+| `close` | Поток завершен и итоговый статус известен. |
 
-```
-history = memory.get_history(session_id)
-messages = [system] + history_as_messages + [user query]
-trace, citations, tool_calls = [], [], 0
+## 5. Память
 
-while tool_calls <= AGENT_MAX_TOOL_CALLS:
-    result = llm_generate(messages)  # retry once if None
-    if result is None: → status=error, break
+Runtime берет историю по `session_id` и добавляет ее в контекст. Это не “долгая память компании”, а краткосрочная память диалога. Она помогает продолжить разговор, но не является источником фактов.
 
-    step = parse_agent_step(result.text) OR parse_fallback
+## 6. Guardrails
 
-    if step.action == "final":
-        answer = step.answer; citations merge; break
+| Механизм | Зачем нужен |
+|----------|-------------|
+| JSON step parser | Чтобы модель возвращала структурированное действие: `tool` или `final`. |
+| Tool registry | Чтобы агент мог вызвать только зарегистрированные инструменты. |
+| Tool dedupe | Чтобы не повторять один и тот же вызов без пользы. |
+| Max tool calls | Чтобы цикл не ушел в бесконечное использование инструментов. |
+| Citations merge | Чтобы найденные источники дошли до пользователя. |
 
-    if tool_calls >= limit: → max_rounds, break
+## 7. Streaming и sync
 
-    if deduper.should_block(tool, args):
-        append blocked tool message; tool_calls++; continue
+| Режим | Для чего |
+|-------|----------|
+| `POST /chat/agent` | Основной пользовательский поток: SSE события и постепенный ответ. |
+| `POST /tasks/agent` | Синхронный JSON-ответ для smoke, тестов и интеграции. |
 
-    tool_result = registry.call(tool, **args)
-    merge citations from tool_result
-    append assistant + tool messages
-    tool_calls++
+Streaming важен не только для UX. Он показывает жизненный цикл ответа: старт, tool call, sources, текст, trace, завершение.
 
-yield text chunks of answer
-yield introspect(trace)
-if completed: memory.append_turn(session_id, query, answer)
-yield close event
-```
+## 8. Счастливый путь
 
-## Prompt Construction Chain
+1. Пользователь спрашивает: “Какие архитектурные политики применимы к этому решению?”
+2. Модель решает, что нужен источник.
+3. Runtime вызывает `search_kb`.
+4. Retrieval возвращает фрагменты и citations.
+5. Модель формирует финальный ответ.
+6. Пользователь получает текст и источники.
 
-1. `build_corporate_architect_system_prompt()` — role, `TOOL_SCHEMA`, JSON format rules
-2. For each history turn: `build_agent_user_prompt(turn.query)` + assistant answer
-3. Current query: `build_agent_user_prompt(query)`
+## 9. Деградации
 
-**Evidence:** `agent_stream.py::_build_messages`, `prompts/corporate_architect.py`.
+| Сбой | Поведение |
+|------|-----------|
+| LLM недоступна | Runtime завершает поток ошибкой. |
+| Модель вернула неструктурированный текст | Включается parse fallback. |
+| Инструмент неизвестен | Runtime возвращает ошибку инструмента в контекст. |
+| Повторный одинаковый tool call | Dedupe блокирует повтор. |
+| Превышен лимит tool calls | Ответ завершается статусом `max_rounds`. |
 
-**Tool schema in prompt:** only `search_kb` documented in `TOOL_SCHEMA`.
+## 10. Главное для архитектора
 
-## Tool Invocation Lifecycle
+Agent runtime — это место, где AI становится управляемым корпоративным механизмом. Он не только получает ответ от LLM, но и отвечает за дисциплину: источники, ограничения, память, trace и завершение.
 
-```mermaid
-sequenceDiagram
-    participant AS as agent_stream
-    participant P as parse_agent_step
-    participant R as ToolRegistry
-    participant D as ToolCallDeduper
-    participant T as search_kb
-
-    AS->>P: raw LLM text
-    P-->>AS: {action, name, arguments}
-    AS->>D: should_block(name, args)
-    alt not blocked
-        AS->>R: call(name, **arguments)
-        R->>T: search_kb(**kwargs)
-        T-->>R: {hits, citations, debug}
-        R-->>AS: tool_result
-    end
-```
-
-**Default registry:** `orchestration/agent_runtime.py::_default_registry` registers only `search_kb`.
-
-## Error Handling
-
-| Condition | Handling |
-|-----------|----------|
-| `AgentParseError` | `parse_fallback=True`, answer=raw text |
-| `KeyError` unknown tool | `{"error": "Unknown tool: ..."}` |
-| Tool exception | `{"error": str(exc)}` in result |
-| LLM None | `status=error`, fixed message |
-| Dedupe block | Synthetic tool message, loop continues |
-
-**No circuit breaker** on repeated LLM errors — Confirmed.
-
-## Streaming vs Non-Streaming
-
-| Path | Entry | Output |
-|------|-------|--------|
-| **Streaming** | `POST /chat/agent` → `iter_agent_events` | SSE: status, tool_call, sources, text chunks, introspect, close |
-| **Sync** | `POST /tasks/agent` → `run_agent` | JSON dict: answer, citations, trace, status |
-
-Sync path consumes same generator — `agent_runtime.py::run_agent`.
-
-**Text chunking:** `_chunk_text(answer, 96)` — `agent_stream.py`.
-
-## Guardrails / Validation
-
-- JSON action must be `tool` or `final` — `parse_agent_step`
-- `AGENT_MAX_TOOL_CALLS` (default 5) — `runtime_settings.py`
-- `AGENT_MAX_TOKENS` passed to vLLM — `runtime_router.py`
-- Tool dedupe same name+args — `ToolCallDeduper`
-- System prompt rules: when to call / not call `search_kb`
-
-**No content moderation layer** — Needs verification.
-
-## Termination Conditions
-
-| Condition | `status` |
-|-----------|----------|
-| `action=final` | `completed` |
-| Parse fallback | `completed` |
-| LLM unavailable | `error` |
-| Max tool calls exceeded mid-loop | `max_rounds` |
-
-## Retry Logic
-
-- LLM: **2 attempts** if `generate()` returns `None` — lines 75–77
-- Tools: **no retry** — single `registry.call`
-- **Unified retry policy** (`core/retry_policy.py`) **not used** in agent loop — Confirmed gap
-
-## Logging / Tracing / Metrics
-
-- `trace` list in response / SSE `introspect`
-- `result_preview` truncated to 500 chars per tool call
-- **No OpenTelemetry / structured logs** in agent_stream — Confirmed gap
-
-## Interactions
-
-| System | How |
-|--------|-----|
-| Memory | `get_short_term_memory().get_history/append_turn` |
-| Retrieval | Indirect via `search_kb` tool only |
-| LLM | `generate_chat_completion` or injected `llm_generate` (tests) |
-| Tools | `ToolRegistry.call` |
-
-## Concurrency & Session Isolation
-
-- `ShortTermMemory` uses `threading.Lock` — in-process
-- Postgres memory uses per-operation connections + lock
-- **Inferred:** same `session_id` on multiple replicas requires `SESSION_STORE=postgres`
-
-## Key Methods Table
-
-| Symbol | File | Responsibility |
-|--------|------|----------------|
-| `iter_agent_events` | `agent_stream.py` | Main loop + SSE event dicts |
-| `run_agent` | `agent_runtime.py` | Sync consumer of events |
-| `_default_registry` | `agent_runtime.py` | Register `search_kb` |
-| `_build_messages` | `agent_stream.py` | Prompt assembly |
-| `parse_agent_step` | `parsers/agent_response.py` | JSON parse + validate action |
-| `generate_chat_completion` | `llm/runtime_router.py` | LLM routing |
-| `ToolCallDeduper.should_block` | `tools/dedupe.py` | Duplicate tool guard |
-
-## Happy Path Walkthrough
-
-1. User: «Какие политики аудита в базе?»
-2. LLM: `{"action":"tool","name":"search_kb","arguments":{"query":"audit policy"}}`
-3. SSE: `tool_call`, then `sources` with citations
-4. LLM: `{"action":"final","answer":"...","citations":[...]}`
-5. SSE: `text` chunks, `introspect`, `close` with `tool_calls=1`
-
-**Test evidence:** `tests/test_agent_runtime.py`, `scripts/smoke_agent_live.ps1`.
-
-## Failure Path Walkthrough
-
-1. vLLM down → double generate fails → `status=error`, answer with ops hint
-2. Qdrant down during search_kb → tool_result error or exception in trace
-3. LLM returns markdown prose instead of JSON → `parse_fallback`, raw text as answer
-
-## Legacy Runtime (not primary)
-
-`orchestration/orchestrator.py::run_orchestration` — planner + pre-RAG + single role graph.  
-`legacy_deprecated: true` в **ответе orchestrator**, не в `/chat/agent`.
-
-**Sync API gap:** `POST /tasks/agent` вызывает `run_agent(payload.query)` без `session_id` — всегда `session_id="default"`. Только `POST /chat/agent` передаёт `ChatAgentRequest.session_id`.
-
-**Do not use** orchestrate/panel for new integrations.
-
-**Evidence:** `orchestration/orchestrator.py`, `app/api/main.py:691-693`, `POST /tasks/orchestrate`.
+Связанные разделы: [search_kb](06-tools-search_kb.md), [Memory](05-memory.md), [API](11-api-and-integration-points.md).

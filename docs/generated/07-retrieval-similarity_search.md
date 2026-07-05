@@ -1,174 +1,67 @@
 ﻿# 07 — Retrieval: `similarity_search`
 
-## Purpose
+`similarity_search` — это слой смыслового поиска по корпоративной базе знаний. Его задача — найти не “строки с теми же словами”, а фрагменты, близкие к вопросу по смыслу.
 
-`similarity_search` — core RAG retrieval: embed query (Nomic) → Qdrant cosine search → threshold filter → curate sources → build `Citation` objects.
+## 1. Почему нужен semantic retrieval
 
-**Primary entry:** `retrieval/similarity_search.py::perform_similarity_search`  
-**Internal:** `search(SimilaritySearchRequest) -> RetrievalResponse`
+Архитектурные документы редко используют ровно те же формулировки, что и пользователь. Один человек спросит “можно ли использовать технологию”, другой — “что говорит техрадар”, третий — “какие ограничения по стандарту”. Semantic retrieval помогает связать эти вопросы с релевантными фрагментами документов.
 
-Used by: `search_kb` tool, legacy `document_retriever` path.
-
-## Architecture Position
+## 2. Поток поиска
 
 ```mermaid
 flowchart LR
-    Q["query"] --> E["EmbeddingProvider.embed_query"]
-    E --> V["QdrantVectorStoreProvider.search_vectors"]
-    V --> F["threshold + filter_identifiers"]
-    F --> C["curate_sources + build_citation"]
-    C --> R["RetrievalResponse"]
+  query["Вопрос пользователя"] --> queryEmbedding["Embedding запроса"]
+  queryEmbedding --> vectorSearch["Поиск близких векторов"]
+  vectorSearch --> threshold["Порог качества"]
+  threshold --> curate["Отбор и нормализация источников"]
+  curate --> response["Фрагменты + citations"]
 ```
 
-**No BM25** — Confirmed (`plans`, no sparse code path in similarity_search).
+## 3. Основные понятия
 
-## Embeddings / Vector Search
+| Понятие | Объяснение |
+|---------|------------|
+| Query embedding | Числовое представление вопроса. |
+| Document embedding | Числовое представление фрагмента документа. |
+| Cosine similarity | Мера смысловой близости между вопросом и фрагментом. |
+| `top_k` | Сколько кандидатов запросить у vector store. |
+| `similarity_threshold` | Минимальная близость для попадания в ответ. |
+| Citation | Проверяемая ссылка на источник найденного фрагмента. |
 
-| Step | Implementation |
-|------|----------------|
-| Query embed | `get_embedding_provider_impl().embed_query` → Nomic prefixes → LM Studio HTTP |
-| Collection | `default_collection_name(corpus_id)` → `<vector-collection-name>` or `<vector-collection-name>__{corpus}` |
-| Search | `vectorstore.search_vectors` with optional `corpus_id` payload filter |
-| Metric | Qdrant cosine (collection created with `Distance.COSINE`) |
+## 4. Что получает агент
 
-**Evidence:** `embeddings/nomic_embeddings.py`, `vectorstore/qdrant_store.py`, `vectorstore/providers.py`.
+Retrieval возвращает не “сырой документ”, а структурированный набор:
 
-### Nomic prefixes
+- текст фрагмента;
+- оценка близости;
+- источник;
+- `chunk_id`;
+- metadata;
+- citations.
 
-| Mode | Prefix |
-|------|--------|
-| Query | `search_query: ` |
-| Document (ingest) | `search_document: ` |
+Этого достаточно, чтобы агент мог сформировать ответ и показать пользователю основание.
 
-**Evidence:** `embeddings/nomic_embeddings.py`
+## 5. Что влияет на качество
 
-## Ranking / Filtering
+| Фактор | Влияние |
+|--------|---------|
+| Качество документов | Если в корпусе нет нужного знания, retrieval его не создаст. |
+| Chunking | Слишком крупные фрагменты дают шум, слишком мелкие теряют контекст. |
+| Embedding-модель | Определяет, насколько хорошо система понимает смысловую близость. |
+| Threshold | Балансирует полноту и точность. |
+| Corpus isolation | Защищает от смешивания разных областей знаний. |
 
-| Filter | Rule | Location |
-|--------|------|----------|
-| Similarity threshold | `score < threshold` dropped | `similarity_search.py` line 69–71 |
-| `filter_identifiers` | Exclude matching `source_identifier` | lines 72–74 |
-| `curate_sources` | Dedupe metadata list | `retrieval/citations.py` |
-| Top-K | Qdrant `limit=top_k` | before threshold filter |
+## 6. Границы текущего подхода
 
-**No reranker** in hot path — `retrieval/reranker.py` exists but not called from `similarity_search`.
+- BM25 / sparse retrieval не является частью основного контура.
+- Reranker не используется в hot path.
+- Local fallback не должен быть production-источником истины.
+- Фильтры по metadata должны развиваться вместе с workspace-моделью.
 
-## Chunking Assumptions (ingest side)
+## 7. Как объяснять бизнесу
 
-Retrieval assumes chunks indexed with payload:
-- `chunk_id`, `source_file`, `text`, `corpus_id`, `order`
+`similarity_search` — это механизм, который позволяет агенту находить релевантные знания даже тогда, когда пользователь формулирует вопрос другими словами. Но он не заменяет governance базы знаний: если документы устарели, противоречат друг другу или плохо структурированы, качество ответа будет ограничено качеством корпуса.
 
-Chunk creation: `ingestion/chunking/text_chunker.py`, `max_chars=220`, SHA1 id.
+## 8. Что запомнить
 
-**Evidence:** `vectorstore/qdrant_store.py` upsert payload fields.
-
-## Metadata Filtering
-
-- Qdrant filter on `corpus_id` when provided — `search_vectors` in `qdrant_store.py`
-- `SimilaritySearchRequest.filters` from parent `RetrievalRequest` — **not applied** in `similarity_search.search` — **Confirmed gap**
-
-## Thresholds / Top-K Defaults
-
-| Parameter | Default | Configurable via |
-|-----------|---------|----------------|
-| `top_k` | 5 | function arg / tool arg |
-| `similarity_threshold` | 0.25 | function arg / `SimilaritySearchRequest` |
-| `corpus_id` | `default` | env `CORPUS_ID_DEFAULT` |
-
-## Fallback Logic
-
-| Path | Condition | Behavior |
-|------|-----------|----------|
-| Empty collection | `collection_exists` false | `empty_retrieval_response` with message |
-| Qdrant error | any exception in search | `SimilaritySearchError` raised |
-| Local chunks fallback | **Not in similarity_search** | `retrieval/vector_retriever.py` if `RETRIEVAL_LOCAL_FALLBACK_ENABLED=true` |
-
-`search_kb` → `perform_similarity_search` only — **no local fallback** on agent path when env false (prod default).
-
-## Performance Considerations
-
-- Single embed HTTP call per query
-- Qdrant query with `top_k` limit
-- Debug timing: `latency_ms` in response.debug
-- Batch ingest embeds all chunks — separate from query path
-
-## Failure Modes
-
-| Failure | Result |
-|---------|--------|
-| Collection missing | Empty chunks, debug message |
-| Qdrant timeout | `SimilaritySearchError` |
-| LM Studio embed down | Exception bubbles to tool error |
-| All scores below threshold | Empty hits, citations [] |
-
-## Call Graph
-
-```
-perform_similarity_search(query, ...)
-  → search(SimilaritySearchRequest)
-    → get_vectorstore_provider_impl()
-    → get_embedding_provider_impl()
-    → vectorstore.collection_exists(target_collection)
-    → embedder.embed_query(request.query)
-    → vectorstore.search_vectors(...)
-    → filter by threshold + filter_identifiers
-    → curate_sources(...)
-    → build_citation(...) per hit
-    → RetrievalResponse
-```
-
-## Sequence Diagram
-
-```mermaid
-sequenceDiagram
-    participant Caller as search_kb / document_retrieve
-    participant PS as perform_similarity_search
-    participant SS as search()
-    participant EP as EmbeddingProvider
-    participant VS as VectorStoreProvider
-    participant QD as Qdrant
-
-    Caller->>PS: query, corpus_id, top_k, threshold
-    PS->>SS: SimilaritySearchRequest
-    SS->>VS: collection_exists(name)
-    alt missing
-        SS-->>Caller: empty RetrievalResponse
-    end
-    SS->>EP: embed_query(query)
-    EP-->>SS: vector
-    SS->>VS: search_vectors(vector, top_k, corpus_id)
-    VS->>QD: query_points
-    QD-->>VS: hits
-    VS-->>SS: raw_hits
-    SS->>SS: filter + curate + build_citation
-    SS-->>Caller: RetrievalResponse
-```
-
-## Citation Contract
-
-`Citation` fields from `core/contracts.py`:
-- `source_uri` ← source_file
-- `object_key` ← `{corpus_id}/{source_file}`
-- `chunk_id`
-- `section` optional from payload
-
-**Evidence:** `retrieval/citations.py::build_citation`
-
-## Related Modules (not primary path)
-
-| Module | Role |
-|--------|------|
-| `document_retriever.py` | Wraps vector retriever for legacy panel |
-| `vector_retriever.py` | Optional local `chunks.json` fallback |
-| `hybrid_retriever.py` | Alias to document_retrieve |
-
-## Open Questions
-
-- `RetrievalRequest.filters` not wired in similarity_search — intentional or gap?
-- Reranker module unused — future or dead code?
-
-## Evidence
-
-- `retrieval/similarity_search.py`
-- `tests/test_retrieval_similarity.py`
-- `scripts/smoke_retrieval.ps1`
+Retrieval — это не просто технический поиск. Это слой доверия между LLM и корпоративными знаниями. Он определяет, насколько ответ агента можно использовать в архитектурном решении.

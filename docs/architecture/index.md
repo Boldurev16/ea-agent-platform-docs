@@ -1,15 +1,13 @@
-﻿# Architecture
+﻿# Архитектура
 
-Системный контекст, контейнеры, runtime flows.
+Раздел объясняет системный контекст, основные контуры платформы и связи между агентом, retrieval, ingestion и эксплуатацией.
 
 | Документ | Описание |
 |----------|----------|
-| [System architecture](system-architecture.md) | Context, compose, Mermaid diagrams |
+| [System architecture](system-architecture.md) | Контуры системы, диаграммы и управленческий смысл |
 
-**Generated:** [generated/03-system-architecture.md](../generated/03-system-architecture.md)
+**Справочный слой:** [generated/03-system-architecture.md](../generated/03-system-architecture.md)
 
-**Legends:** [System context](../legends/system-context.md) · [Agent sequence](../legends/agent-runtime-sequence.md)
-
-**Legacy:** [architecture_2026-04-14](../architecture_2026-04-14_12-00.md) · [ADR-001](../adr/ADR-001-architecture-baseline_2026-04-14_12-00.md)
+**Легенды:** [System context](../legends/system-context.md) · [Agent sequence](../legends/agent-runtime-sequence.md)
 
 [← Главная](../index.md)

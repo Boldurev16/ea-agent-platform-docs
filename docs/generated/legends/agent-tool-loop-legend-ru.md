@@ -19,7 +19,7 @@ Sequence: `agent_stream` → `parse_agent_step` → `ToolCallDeduper` → `ToolR
 
 | Стрелка | Смысл |
 |---------|-------|
-| AS→P | Raw LLM text → JSON step |
+| AS→P | Текст ответа LLM → структурированный JSON-шаг |
 | AS→D | Проверка fingerprint tool+args |
 | AS→R→T | Dispatch tool handler |
 

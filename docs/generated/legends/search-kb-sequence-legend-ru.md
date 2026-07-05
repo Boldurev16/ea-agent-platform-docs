@@ -24,7 +24,7 @@ Sequence: `agent_stream` → `ToolRegistry` → `search_kb` → `perform_similar
 | `similarity_search` | Module | `retrieval/similarity_search.py` | Core algorithm |
 | `perform_similarity_search` | Public API | Wrapper → `search()` | Params → request |
 | `embed_query` | Query embedding | Nomic prefix `search_query:` | Vector for search |
-| `search_vectors` | Qdrant query | Top-K cosine | Raw hits |
+| `search_vectors` | Запрос в Qdrant | Top-K по cosine similarity | Первичные результаты поиска |
 | `similarity_threshold` | Min score | Default 0.25 | Filter |
 | `top_k` | Max hits | Default 5 | Qdrant limit |
 | `citations` | Source refs | `build_citation` | SSE `sources` |

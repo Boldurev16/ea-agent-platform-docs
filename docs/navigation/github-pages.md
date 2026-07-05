@@ -40,7 +40,8 @@ bundle exec jekyll serve
 
 ## Не публикуются через Pages
 
-- `../plans/` — вне `/docs` (ссылки из docs ведут на GitHub source view)
-- Application code, `scripts/` — только упоминания в тексте
+- Внутренние планы и runbook.
+- Исходный код приложения, scripts и tests.
+Эти материалы могут упоминаться только как архитектурный контекст без ссылок на приватное содержимое.
 
 [← Navigation](index.md) · [← Главная](../index.md)

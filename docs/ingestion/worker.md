@@ -1,7 +1,20 @@
-﻿# Ingestion Worker
+﻿# Ingestion worker
 
-→ **[generated/08-ingestion-worker.md](../generated/08-ingestion-worker.md)**
+Worker — это исполнитель очереди ingestion-заданий. Он отделяет пользовательский запрос “обновить базу знаний” от тяжелой обработки документов.
 
-`python -m ingestion.worker` — Postgres queue, `FOR UPDATE SKIP LOCKED`, poll 2s. Statuses: `queued` / `running` / `done` / `failed`.
+## Зачем нужна очередь
+
+Без очереди пользовательский интерфейс должен ждать, пока система разберет документы, построит embeddings и обновит vector store. Очередь делает процесс управляемым: задача получает статус, может завершиться успешно или с ошибкой, а эксплуатация видит, где произошел сбой.
+
+| Статус | Смысл |
+|--------|-------|
+| `queued` | Задание принято и ожидает обработки. |
+| `running` | Worker выполняет pipeline. |
+| `done` | Документы обработаны и знания обновлены. |
+| `failed` | Обработка завершилась ошибкой, требуется диагностика. |
+
+## Детальный разбор
+
+См. [generated/08-ingestion-worker.md](../generated/08-ingestion-worker.md).
 
 [← Ingestion](index.md) · [Troubleshooting: stale running](../navigation/troubleshooting-map.md)

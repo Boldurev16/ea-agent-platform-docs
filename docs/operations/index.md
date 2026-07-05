@@ -1,18 +1,18 @@
 ﻿# Operations
 
-API, health, compose, risks.
+Раздел объясняет эксплуатационную готовность агентной системы: API, health, ingestion jobs, риски и диагностику зависимостей.
 
 | Документ | Описание |
 |----------|----------|
-| [API & integration](api.md) | Endpoints, SSE, legacy |
-| [Ops & risks](ops-and-risks.md) | Compose, smoke, risk register |
-| [Data contracts](../generated/10-data-contracts-and-models.md) | DTOs, env vars |
+| [API и интеграционные точки](api.md) | Chat, ingestion и health endpoints |
+| [Эксплуатация и риски](ops-and-risks.md) | Readiness, наблюдаемость, риск-регистр |
+| [Data contracts](../generated/10-data-contracts-and-models.md) | DTO, статусы, параметры |
 
-**Generated:**
+**Справочный слой:**
 
 - [generated/11-api-and-integration-points.md](../generated/11-api-and-integration-points.md)
 - [generated/12-ops-observability-and-risks.md](../generated/12-ops-observability-and-risks.md)
 
-**Internal runbooks:** operational procedures live in the private implementation repository (not published here).
+Детальные операционные runbook не публикуются в этом учебном репозитории.
 
 [← Главная](../index.md)

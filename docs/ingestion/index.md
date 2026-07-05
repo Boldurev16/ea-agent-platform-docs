@@ -1,17 +1,17 @@
 ﻿# Ingestion
 
-Async worker + sync pipeline.
+Раздел объясняет, как документы становятся частью корпоративной базы знаний: через очередь заданий, worker и pipeline обработки.
 
 | Документ | Описание |
 |----------|----------|
-| [Worker](worker.md) | `ingest_jobs`, poll, statuses |
-| [Pipeline](pipeline.md) | ETL, chunk(220), Qdrant upsert |
+| [Worker](worker.md) | Очередь заданий и статусы обработки |
+| [Pipeline](pipeline.md) | Разбор, chunking, embeddings и индексирование |
 
-**Generated:**
+**Справочный слой:**
 
 - [generated/08-ingestion-worker.md](../generated/08-ingestion-worker.md)
 - [generated/09-ingestion-pipeline.md](../generated/09-ingestion-pipeline.md)
 
-**Legends:** [Worker jobs](../legends/worker-job-states.md) · [Pipeline](../legends/ingestion-pipeline.md)
+**Легенды:** [Worker jobs](../legends/worker-job-states.md) · [Pipeline](../legends/ingestion-pipeline.md)
 
 [← Главная](../index.md)

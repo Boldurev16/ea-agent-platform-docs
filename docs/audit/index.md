@@ -1,13 +1,13 @@
-﻿# Audit & Quality
+﻿# Достоверность и открытые вопросы
 
-Documentation audit и open questions.
+Раздел фиксирует уровень доверия к документации и вопросы, которые требуют архитектурного, продуктового или эксплуатационного решения.
 
 | Документ | Описание |
 |----------|----------|
-| [Audit report](audit-report.md) | Confirmed / corrected / gaps |
-| [Open questions](open-questions.md) | Backlog валидации |
+| [Audit report](audit-report.md) | Достоверность, ограничения и зоны проверки |
+| [Open questions](open-questions.md) | Открытые вопросы для ревью |
 
-**Generated:**
+**Справочный слой:**
 
 - [generated/15-documentation-audit-report.md](../generated/15-documentation-audit-report.md)
 - [generated/13-open-questions.md](../generated/13-open-questions.md)

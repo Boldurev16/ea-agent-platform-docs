@@ -24,7 +24,7 @@ ea-agent-platform/          ← implementation repository (private / separate)
 ├── llm/                    ← chat runtime routing (vLLM / LM Studio)
 ├── core/                   ← shared contracts, readiness checks
 ├── connectors/             ← planned external sources (SQL, Confluence)
-├── configs/                ← non-secret configuration templates
+├── configs/                ← configuration templates without credentials
 ├── infra/                  ← deployment artifacts (not in public docs)
 ├── scripts/                ← smoke and ops scripts (not in public docs)
 ├── tests/                  ← automated tests (not in public docs)

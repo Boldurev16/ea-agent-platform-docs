@@ -4,11 +4,11 @@
 
 ## 1. Название
 
-Flowchart: `data/raw/` → parse → chunk(220) → embed → Qdrant → artifacts.
+Flowchart: исходные документы → разбор → фрагменты → embeddings → Qdrant → отчетность.
 
 ## 2. Назначение
 
-End-to-end индексация документов в vector store и файлы отчёта.
+Сквозная индексация документов в vector store и формирование отчета о загрузке.
 
 ## 3. Как читать
 
@@ -20,7 +20,7 @@ End-to-end индексация документов в vector store и файл
 
 | Блок | Функция | Модуль |
 |------|---------|--------|
-| `sync_sources_to_storage` | Upload raw → MinIO | `ingestion/pipeline.py` |
+| `sync_sources_to_storage` | Синхронизация исходных документов в storage | `ingestion/pipeline.py` |
 | `load_text_documents` | Multi-format load | `ingestion/loaders/text_loader.py` |
 | `parse_documents` | Extract text | `ingestion/parsers/text_parser.py` |
 | `normalize_records` | Cleanup | `ingestion/normalizers/text_normalizer.py` |
@@ -39,7 +39,7 @@ End-to-end индексация документов в vector store и файл
 | `pipeline` | `run_ingest_pipeline` | Orchestrator |
 | `STORAGE_PROVIDER` | local/minio | MinIO sync optional |
 | `complete_ingest_job` | Job done + report | Async path with `job_id` |
-| `data/raw/` | Локальный read path | **Parse всегда отсюда** (R14) |
+| Исходные документы | Локальный источник разбора | Pipeline читает подготовленные файлы из контролируемого источника |
 
 ## 6. Код
 
@@ -53,7 +53,7 @@ Optional MinIO sync → load → parse → normalize → chunk → embed all tex
 
 | Ошибка | Факт |
 |--------|------|
-| Parse из MinIO | Локальный `data/raw/` (R14) |
+| Разбор напрямую из MinIO | Pipeline использует локальный источник документов |
 | Delta / skip unchanged | Full reprocess каждый run |
 | `IngestRequest.chunkers` | DTO не подключён к API |
 

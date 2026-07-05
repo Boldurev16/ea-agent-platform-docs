@@ -1,68 +1,39 @@
-# Publishing guide (GitHub Pages)
+# Руководство по публикации документации
 
-Repository: **ea-agent-platform-docs**  
-Intended owner: **Boldurev16**
+Этот репозиторий содержит только учебную и санитизированную документацию. Он не должен включать исходный код приложения, секреты, приватные prompt-тексты, внутренние окружения и операционные снимки.
 
-## Prerequisites
+## Назначение публикации
 
-- This repo contains **documentation only** (no application code).
-- Entry point: **`docs/index.md`**
-- Jekyll config: **`docs/_config.yml`**
+Цель публикации — дать русскоязычной аудитории понятный учебный материал по архитектуре агентной системы для управления корпоративной архитектурой.
 
-## Steps
+## Что публикуется
 
-### 1. Create GitHub repository
+- `docs/index.md` — входная страница курса.
+- `docs/navigation/` — маршруты чтения, глоссарий, troubleshooting.
+- `docs/overview/`, `docs/architecture/`, `docs/runtime/`, `docs/retrieval/`, `docs/ingestion/`, `docs/operations/` — учебные разделы.
+- `docs/generated/` — санитизированный справочный слой.
+- `docs/legends/` — пояснения к диаграммам.
 
-```bash
-# From local ea-agent-platform-docs folder
-git init
-git add .
-git commit -m "Initial public documentation publication"
-git branch -M main
-git remote add origin https://github.com/Boldurev16/ea-agent-platform-docs.git
-git push -u origin main
-```
+## Проверка перед публикацией
 
-### 2. Enable Pages
+- [ ] Главная страница объясняет курс на русском языке.
+- [ ] Нет внутренних абсолютных путей.
+- [ ] Нет секретов, паролей, токенов и приватных endpoint.
+- [ ] Нет полного текста внутренних промптов.
+- [ ] Термины согласованы с [глоссарием](navigation/glossary.md).
+- [ ] Диаграммы читаются без знания исходного кода.
+- [ ] Ссылки ведут на существующие markdown-файлы.
+- [ ] Обновлен [отчет о санитизации](publishing-sanitization-report.md).
 
-1. GitHub → repository **Settings** → **Pages**.
-2. **Build and deployment**
-   - Source: **Deploy from a branch**
-   - Branch: `main`
-   - Folder: **`/docs`**
-3. Save.
+## Техническая публикация
 
-Published URL (default):
+Для GitHub Pages точка входа — `docs/index.md`, конфигурация — `docs/_config.yml`. Конкретный репозиторий, branch и домен задаются владельцем публикационного контура.
 
-`https://boldurev16.github.io/ea-agent-platform-docs/`
+## Правило обновлений
 
-### 3. Verify
+Любое обновление должно проходить два review:
 
-- Open `/` — should render `docs/index.md`.
-- Check links under `/navigation/`, `/overview/`, `/legends/`.
-- Mermaid blocks render on GitHub; Jekyll theme may vary — test diagram pages.
+1. **Редакционное:** понятен ли материал C-level, архитектору и инженеру.
+2. **Санитизационное:** не раскрывает ли текст лишние внутренние детали.
 
-### 4. Updates
-
-After editing markdown in `docs/`:
-
-```bash
-git add docs/
-git commit -m "docs: update <topic>"
-git push
-```
-
-Pages rebuilds within ~1–3 minutes.
-
-## Custom domain (optional)
-
-Settings → Pages → Custom domain → configure DNS CNAME to `boldurev16.github.io`.
-
-## Security checklist before each release
-
-- [ ] No `.env` or credential files added
-- [ ] No internal hostnames or private IPs in new content
-- [ ] Review [`publishing-sanitization-report.md`](publishing-sanitization-report.md)
-- [ ] No copy-paste of production prompts or business rules
-
-[← Documentation home](index.md)
+[← Главная](index.md)

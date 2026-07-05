@@ -1,9 +1,19 @@
-﻿# Session Memory
+﻿# Память сессии
 
-→ **[generated/05-memory.md](../generated/05-memory.md)**
+Память сессии — это краткосрочный контекст диалога. Она помогает агенту понимать продолжение разговора, но не является корпоративной базой знаний и не должна использоваться как источник истины.
 
-`get_short_term_memory()`, `max_turns=10`, `SESSION_STORE=memory|postgres`. Write только при `status==completed`.
+## Главное различие
 
-**Важно:** UI `dialogTurns` (localStorage) — отдельно от server `session_id` (audit R5).
+| Вид памяти | Где живет | Для чего |
+|------------|-----------|----------|
+| UI history | В браузере пользователя | Показать историю на экране |
+| Server session memory | На стороне сервера или Postgres | Добавить прошлые реплики в prompt |
+| Корпоративная база знаний | В retrieval-контуре | Дать проверяемые факты и источники |
+
+Если пользователь очистил историю в UI, это не всегда означает очистку серверной памяти. Поэтому для строгой изоляции разговора важен новый `session_id`.
+
+## Детальный разбор
+
+См. [generated/05-memory.md](../generated/05-memory.md).
 
 [← Memory](index.md) · [Troubleshooting: UI history](../navigation/troubleshooting-map.md)

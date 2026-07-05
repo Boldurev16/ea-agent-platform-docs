@@ -1,102 +1,63 @@
-﻿# 13 — Open Questions
+﻿# 13 — Открытые вопросы для архитектурного и продуктового ревью
 
-Список неоднозначностей, пробелов и пунктов для валидации с командой. Статусы: **Confirmed gap** (код явно не реализует), **Needs verification** (не проверено в runtime), **Assumption** (логическое следование).
+Этот список помогает отделить реализованный MVP от решений, которые требуют бизнес-выбора, эксплуатации или дальнейшего проектирования.
 
-## Top 10 — Human Validation Required
+## 1. Product shell
 
-| # | Question | Status | Evidence / Notes |
-|---|----------|--------|------------------|
-| 1 | Почему `ea-periodic-worker` перезапускается в compose? | Needs verification | Compose logs; `scripts/run_periodic_ingestion.py` |
-| 2 | Допустимый размер batch для `embed_texts` при ~10k chunks? | Needs verification | `ingestion/pipeline.py` single call |
-| 3 | Безопасно ли экспонировать API без auth в on-prem? | Assumption | No auth in `app/api/main.py` |
-| 4 | Используется ли `agent_scope` / `filters` в retrieval roadmap? | Confirmed gap | DTO exists; `similarity_search` ignores |
-| 5 | Когда wiring `IngestRequest.chunkers` и `force_reindex`? | Confirmed gap | DTO vs `POST /ingestion/run` |
-| 6 | Horizontal scaling workers — job locking в Postgres? | **Confirmed** — `FOR UPDATE SKIP LOCKED` в `claim_next_ingest_job` | `storage/ingest_jobs.py` |
-| 7 | Production target: vLLM only chat или LM Studio fallback? | Needs verification | `RUNTIME_PROVIDER` env |
-| 8 | Retention policy для `chat_turns` и `ingest_jobs`? | Confirmed gap | No TTL in schema |
-| 9 | Parity Phase 2 P1 — workspaces как corpus_id mapping? | Assumption | Plan doc vs current single corpus |
-| 10 | Flaky test `test_iter_agent_events_emits_sources_on_tool_call` без Qdrant? | Needs verification | `tests/test_chat_agent_stream.py` |
+| Вопрос | Почему важен |
+|--------|--------------|
+| Как должна выглядеть модель workspaces? | Нужна изоляция команд, корпусов знаний и настроек. |
+| Какие роли нужны в RBAC? | C-level, архитектор, оператор базы знаний и инженер имеют разные права. |
+| Где пользователь загружает документы? | Нужен self-service document management UI. |
+| Нужен ли embed-widget для портала? | Влияет на каналы доступа к агенту. |
 
-## Agent Runtime
+## 2. Knowledge governance
 
-| Question | Status |
-|----------|--------|
-| Streaming token-by-token from vLLM vs chunked `text` events? | Needs verification — `agent_stream.py` may batch |
-| Max context window enforcement beyond `AGENT_MAX_TOKENS`? | Partial — generation limit only |
-| Corporate architect prompt versioning strategy? | Not in code |
+| Вопрос | Почему важен |
+|--------|--------------|
+| Кто владелец корпоративной базы знаний? | Без владельца corpus устаревает. |
+| Как фиксировать актуальность документа? | Агент может ссылаться на старый источник. |
+| Нужен ли approval flow для документов? | Влияет на доверие к ответам. |
+| Как обрабатывать чувствительные документы? | Требуются правила доступа и санитизации. |
 
-## Memory
+## 3. Retrieval quality
 
-| Question | Status |
-|----------|--------|
-| Default `SESSION_STORE=memory` in multi-replica deploy? | Ops risk — use postgres |
-| Summarization of long sessions? | Confirmed gap |
-| Cross-session long-term memory? | Confirmed gap |
+| Вопрос | Почему важен |
+|--------|--------------|
+| Какой threshold подходит для русскоязычных EA-документов? | Балансирует точность и полноту. |
+| Нужен ли hybrid search? | Может улучшить поиск по терминам и аббревиатурам. |
+| Нужен ли reranker? | Может повысить качество top results. |
+| Как оценивать качество ответа? | Требуются eval-наборы и бизнес-критерии. |
 
-## Tools (`search_kb`)
+## 4. Ingestion и эксплуатация
 
-| Question | Status |
-|----------|--------|
-| Authorization per corpus/workspace? | Confirmed gap |
-| Rate limit per session on tool calls? | Only `AGENT_MAX_TOOL_CALLS` global |
+| Вопрос | Почему важен |
+|--------|--------------|
+| Нужен ли incremental ingest по checksum? | Снижает стоимость обновления больших корпусов. |
+| Как восстанавливать stale jobs? | Worker crash не должен оставлять неопределенность. |
+| Как мониторить failed jobs? | Оператор должен видеть проблемы обновления знаний. |
+| Какие форматы документов являются обязательными? | Определяет рамку промышленной поддержки. |
 
-## Retrieval
+## 5. Security и compliance
 
-| Question | Status |
-|----------|--------|
-| Optimal `similarity_threshold` 0.25 for Russian EA docs? | Needs validation |
-| Hybrid search (BM25 + vector)? | Confirmed gap |
-| Re-ranking model? | Confirmed gap |
+| Вопрос | Почему важен |
+|--------|--------------|
+| Какой minimum viable auth нужен для MVP+? | Без доступа нельзя масштабировать аудиторию. |
+| Нужен ли audit log для загрузки документов? | Важно для контроля изменений базы знаний. |
+| Как разделять данные между workspaces? | Критично для корпоративной безопасности. |
+| Где хранить политику retention для chat history и jobs? | Влияет на соответствие внутренним требованиям. |
 
-## Ingestion
+## 6. Observability
 
-| Question | Status |
-|----------|--------|
-| Semantic chunking vs fixed 220 chars? | Confirmed gap — fixed only |
-| Incremental ingest by file hash? | Confirmed gap — full reprocess |
-| Confluence / SQL sources (Phase 2 P2)? | Planned, not in code |
+| Вопрос | Почему важен |
+|--------|--------------|
+| Нужны ли метрики Prometheus? | Для production on-call. |
+| Нужен ли distributed tracing? | Поможет разбирать длинные цепочки agent → tool → retrieval. |
+| Какие alerts должны быть обязательными? | LLM, embeddings, vector store, failed jobs, degraded readiness. |
 
-## API & Product
+## Как закрывать вопросы
 
-| Question | Status |
-|----------|--------|
-| Official deprecation timeline for `/tasks/*`? | Not documented in code |
-| CORS / embed widget API? | Confirmed gap |
-| OpenAPI export for external teams? | FastAPI auto — **Needs verification** `/docs` |
-
-## Infrastructure
-
-| Question | Status |
-|----------|--------|
-| Helm chart production-ready vs compose-only dev? | Needs verification |
-| NOTICE.md license obligations for bundled models? | See `NOTICE.md` |
-| MinIO required in prod or local-only ingest path? | `STORAGE_PROVIDER=auto` |
-
-## Observability
-
-| Question | Status |
-|----------|--------|
-| Prometheus metrics endpoint? | Confirmed gap |
-| Distributed tracing (OpenTelemetry)? | Confirmed gap |
-| Alerting on `ingest_jobs.failed`? | Confirmed gap |
-
-## Data & Compliance
-
-| Question | Status |
-|----------|--------|
-| PII handling in `data/raw/`? | Not in code |
-| Audit log for KB document uploads? | Confirmed gap |
-| Encryption at rest for Postgres/Qdrant? | Infra-level |
-
-## Resolution Process
-
-1. Owner assigns each ID to engineer or architect.
-2. Validate in staging with smoke suite + manual queries.
-3. Update this file and linked module docs when resolved.
-4. Track product gaps in the private implementation repository planning documents.
-
-## Evidence
-
-- Entire `ea-agent-platform` codebase scan
-- Private implementation repository milestone reports
-- `plans/ea_rag_consolidation_355c452a.plan.md`
+1. Назначить владельца: продукт, архитектура, эксплуатация или безопасность.
+2. Зафиксировать решение в отдельном внутреннем design record.
+3. Обновить учебную документацию только на уровне, который проходит санитизацию.
+4. Проверить, что изменение отражено в navigation, glossary и соответствующем контуре.

@@ -163,7 +163,7 @@ See `runtime_settings.py` + `core/retry_policy.py`:
 | `LMSTUDIO_BASE_URL` | <embedding-host>:<embed-port>/v1 | `get_lmstudio_base_url` |
 | `LMSTUDIO_EMBED_MODEL` | nomic v1.5 | `get_lmstudio_embed_model` |
 | `LMSTUDIO_EMBED_FALLBACK_ENABLED` | false | `get_lmstudio_embed_fallback_enabled` |
-| `QDRANT_HOST/PORT/COLLECTION` | localhost, 6333, <vector-collection-name> | various |
+| `QDRANT_HOST/PORT/COLLECTION` | <vector-store-host>, <vector-store-port>, <vector-collection-name> | various |
 | `CORPUS_ID_DEFAULT` | default | `get_default_corpus_id` |
 | `STORAGE_PROVIDER` | auto | `get_storage_provider` |
 | `VECTORSTORE_PROVIDER` | qdrant | `get_vectorstore_provider` |

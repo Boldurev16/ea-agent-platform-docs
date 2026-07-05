@@ -1,130 +1,67 @@
 ﻿---
-title: ea-agent-platform Documentation
-description: Technical documentation for the corporate architect agent platform (RAG, tool loop, ingestion).
+title: Учебный курс ea-agent-platform
+description: Русскоязычный учебный материал по архитектуре агентной системы для управления корпоративной архитектурой.
 ---
 
-# ea-agent-platform — документация
+# ea-agent-platform — учебный курс по архитектуре агентной системы
 
-Self-hosted платформа корпоративного архитектора (EA) с RAG и tool-loop агентом: индексация документов в Qdrant, on-demand поиск через `search_kb`, стриминг-чат `POST /chat/agent`, async ingest через Postgres queue.
+Этот сайт объясняет, как устроена self-hosted агентная платформа для управления корпоративной архитектурой: от загрузки документов в корпоративную базу знаний до ответа агента с трассируемыми источниками. Материал написан для русскоязычной аудитории Норникель Спутник и рассчитан не только на инженеров, но и на руководителей архитектурной функции, C-level и владельцев продукта.
 
-**Статус backend:** M0–M7 ✅ (consolidation milestone complete; details in implementation repository).  
-**Источник истины по коду (reverse-engineered):** каталог [`generated/`](generated/README.md), сверка — [audit report](generated/15-documentation-audit-report.md).
+Система рассматривается как **архитектурный контур принятия решений**: пользователь задает вопрос, агент формирует рассуждение, при необходимости обращается к базе знаний через инструмент `search_kb`, возвращает ответ с источниками и сохраняет контекст диалога.
 
----
+## Что важно понять сначала
+
+| Идея | Управленческий смысл |
+|------|----------------------|
+| **Единый агент корпоративной архитектуры** | Архитектурные ответы формируются в одном контуре, а не распределяются между разрозненными ролями. |
+| **RAG on-demand** | Поиск по базе знаний вызывается только тогда, когда он нужен для ответа. Это снижает шум и ускоряет простые диалоги. |
+| **Трассируемость ответа** | Пользователь видит источники, на которые опирается агент. Это критично для доверия к рекомендациям. |
+| **Промышленный ingestion** | Документы проходят управляемый путь: загрузка, разбор, разбиение, embeddings, индексирование. |
+| **Готовность к эксплуатации** | Health endpoints, очередь заданий и санитизированная документация отделяют эксперимент от управляемого продукта. |
 
 ## Для кого эта документация
 
-| Аудитория | С чего начать |
-|-----------|---------------|
-| **Архитектор / tech lead** | [Overview](overview/) → [Architecture](architecture/) → [Audit](audit/) |
-| **Backend engineer** | [Navigation: reading paths](navigation/reading-paths.md) → [Runtime](runtime/) → [API](operations/api.md) |
-| **ML / AI engineer** | [Retrieval](retrieval/) → [Runtime](runtime/) → [Memory](memory/) |
-| **Ops / support** | [Operations](operations/) → [Troubleshooting map](navigation/troubleshooting-map.md) |
-| **Новый участник команды** | Эта страница → [Cheat sheet](navigation/cheat-sheet.md) → [Cross-area runbook](legends/cross-area-runbook.md) |
-
----
+| Аудитория | Главный вопрос | Маршрут |
+|-----------|----------------|---------|
+| **C-level / руководитель функции** | Какую управленческую ценность дает агентная архитектура? | [Executive overview](overview/executive-overview.md) → [PRD](overview/prd.md) → [Architecture](architecture/system-architecture.md) |
+| **Enterprise architect** | Как система помогает управлять знаниями, стандартами и решениями? | [Cheat sheet](navigation/cheat-sheet.md) → [System architecture](architecture/system-architecture.md) → [Retrieval](retrieval/) |
+| **Product owner** | Какие пользовательские сценарии уже закрыты и где границы продукта? | [PRD](overview/prd.md) → [Open questions](audit/open-questions.md) → [Ops & risks](operations/ops-and-risks.md) |
+| **Инженерная команда** | Как реализованы runtime, tools, ingestion и health? | [Reading paths](navigation/reading-paths.md) → [Runtime](runtime/) → [API](operations/api.md) |
+| **Эксплуатация / support** | Как понять, что система здорова, и где искать сбой? | [Operations](operations/) → [Troubleshooting map](navigation/troubleshooting-map.md) |
 
 ## Быстрая навигация по темам
 
-| Раздел | Содержание |
-|--------|------------|
-| [Overview](overview/) | Executive summary, PRD |
-| [Architecture](architecture/) | System context, containers, flows |
-| [Runtime](runtime/) | `iter_agent_events`, tool loop, SSE |
-| [Memory](memory/) | Session memory, UI vs server |
-| [Retrieval](retrieval/) | `search_kb`, `similarity_search` |
-| [Ingestion](ingestion/) | Worker, pipeline, jobs |
-| [Operations](operations/) | API, health, compose, risks |
-| [Legends](legends/) | Легенды Mermaid-диаграмм |
-| [Audit](audit/) | Documentation audit, open questions |
-| [Navigation](navigation/) | Reading paths, troubleshooting, cheat sheet |
-| [Generated (raw)](generated/README.md) | Полный набор reverse-engineered docs |
-| [Publishing](publishing-guide.md) | GitHub Pages setup |
-| [Sanitization report](publishing-sanitization-report.md) | Public export boundaries |
+| Раздел | Что изучаем |
+|--------|-------------|
+| [Overview](overview/) | Назначение платформы, границы продукта, бизнес-эффект |
+| [Architecture](architecture/) | Слои системы, контуры данных, runtime и инфраструктура |
+| [Runtime](runtime/) | Как агент принимает решение: отвечать сразу или вызывать инструмент |
+| [Retrieval](retrieval/) | Как устроен поиск по корпоративной базе знаний и зачем нужны citations |
+| [Ingestion](ingestion/) | Как документы становятся частью базы знаний |
+| [Memory](memory/) | Как контекст диалога отличается от корпоративной памяти |
+| [Operations](operations/) | API, health, эксплуатационные риски и диагностика |
+| [Legends](legends/) | Пояснения к диаграммам простым языком |
+| [Audit](audit/) | Что подтверждено, какие вопросы требуют бизнес-ревью |
+| [Navigation](navigation/) | Маршруты чтения, глоссарий, troubleshooting |
+| [Generated](generated/README.md) | Санитизированный справочный слой для глубокого изучения |
 
----
+## Минимальный маршрут за 60 минут
 
-## Рекомендуемые маршруты чтения
+1. [Executive overview](overview/executive-overview.md) — зачем такая система нужна компании.
+2. [Cheat sheet](navigation/cheat-sheet.md) — как читать архитектуру целиком.
+3. [System architecture](architecture/system-architecture.md) — какие контуры образуют платформу.
+4. [Agent runtime](runtime/agent-runtime.md) — как работает агентный цикл.
+5. [search_kb](retrieval/search-kb.md) — как агент обращается к знаниям.
+6. [Glossary](navigation/glossary.md) — единый словарь терминов.
 
-Кратко — ниже; подробно: [navigation/reading-paths.md](navigation/reading-paths.md).
+## Граница публикации
 
-### Architect
+Это **санитизированный учебный контур**. Здесь намеренно нет исходного кода, секретов, приватных prompt-текстов, внутренних окружений и детальных операционных снимков. Документация показывает архитектурные принципы, контуры управления и эксплуатационную логику без раскрытия чувствительных деталей.
 
-1. [Executive overview](overview/executive-overview.md)
-2. [System architecture](architecture/system-architecture.md)
-3. [Data contracts](generated/10-data-contracts-and-models.md)
-4. [Audit report](audit/audit-report.md)
+Подробно: [publishing-sanitization-report.md](publishing-sanitization-report.md).
 
-### Backend engineer
+## Легенда достоверности
 
-1. [System architecture](architecture/system-architecture.md)
-2. [API & integration](operations/api.md)
-3. [Agent runtime](runtime/agent-runtime.md)
-4. [Deep dive (6 paths)](generated/14-deep-dive-priority-areas.md)
-5. [Ingestion worker](ingestion/worker.md) + [pipeline](ingestion/pipeline.md)
-
-### ML / AI engineer
-
-1. [similarity_search](retrieval/similarity-search.md)
-2. [search_kb](retrieval/search-kb.md)
-3. [Agent runtime](runtime/agent-runtime.md)
-4. [Memory](memory/session-memory.md)
-
-### Ops / support
-
-1. [Ops & risks](operations/ops-and-risks.md)
-2. [Troubleshooting map](navigation/troubleshooting-map.md)
-3. [Cross-area runbook](legends/cross-area-runbook.md)
-4. [Ingestion worker](ingestion/worker.md)
-
-### New team member
-
-1. [Cheat sheet](navigation/cheat-sheet.md)
-2. [Overview](overview/) + [Architecture](architecture/)
-3. [Diagram legends index](legends/)
-4. [Open questions](audit/open-questions.md)
-
----
-
-## Ключевые документы (прямые ссылки)
-
-| Документ | Ссылка |
-|----------|--------|
-| Executive overview | [overview/executive-overview.md](overview/executive-overview.md) |
-| PRD (AS-IS) | [overview/prd.md](overview/prd.md) |
-| System architecture | [architecture/system-architecture.md](architecture/system-architecture.md) |
-| Agent runtime | [runtime/agent-runtime.md](runtime/agent-runtime.md) |
-| Memory | [memory/session-memory.md](memory/session-memory.md) |
-| Tool `search_kb` | [retrieval/search-kb.md](retrieval/search-kb.md) |
-| `similarity_search` | [retrieval/similarity-search.md](retrieval/similarity-search.md) |
-| Ingestion worker | [ingestion/worker.md](ingestion/worker.md) |
-| Ingestion pipeline | [ingestion/pipeline.md](ingestion/pipeline.md) |
-| Diagram legends | [legends/](legends/) |
-| Audit report | [audit/audit-report.md](audit/audit-report.md) |
-
----
-
-## Scope of this public repository
-
-This site publishes **sanitized architecture and operations documentation**. Internal dated runbooks, ADR drafts, eval artifacts, and planning documents remain in the private implementation repository.
-
-See [publishing-sanitization-report.md](publishing-sanitization-report.md).
-
----
-
-## Публикация на GitHub Pages
-
-1. Repository **Settings → Pages**.
-2. Source: branch (например `main`) → folder **`/docs`**.
-3. Entry point: этот файл **`docs/index.md`**.
-4. После deploy: `https://<org>.github.io/<repo>/` (или custom domain).
-
-Подробнее: [navigation/github-pages.md](navigation/github-pages.md).
-
----
-
-## Легенда достоверности (generated docs)
-
-- **Confirmed by code** — подтверждено кодом/тестами
-- **Inferred** — логический вывод из структуры
-- **Needs verification** — требует ручной проверки (см. [audit](audit/))
+- **Подтверждено реализацией** — поведение отражает код, API или smoke-проверки.
+- **Архитектурный вывод** — объяснение построено на структуре системы и требует контроля при изменении реализации.
+- **Требует бизнес-ревью** — вопрос влияет на продуктовые границы, роли, ответственность или будущую дорожную карту.

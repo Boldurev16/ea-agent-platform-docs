@@ -1,105 +1,95 @@
 ﻿# Рекомендуемые маршруты чтения
 
-Порядок чтения по ролям. Технические идентификаторы — в оригинале.  
-Сверка с кодом: [audit report](../generated/15-documentation-audit-report.md).
+Эта страница помогает выбрать глубину погружения. Агентная платформа затрагивает сразу несколько контуров: бизнес-ценность, корпоративную архитектуру, AI/runtime, данные, эксплуатацию и безопасность. Поэтому читать все подряд не нужно: начните с роли.
 
----
+## C-level / руководитель архитектурной функции
 
-## Архитектор / principal engineer
+**Цель:** понять, зачем компании нужен агентный контур управления архитектурой и какие решения он делает более прозрачными.
 
-**Цель:** границы системы, контракты, риски, что подтверждено audit.
+| Шаг | Документ | Что вынести |
+|-----|----------|-------------|
+| 1 | [Executive overview](../overview/executive-overview.md) | Бизнес-смысл: скорость, единая база знаний, трассируемость |
+| 2 | [PRD](../overview/prd.md) | Границы продукта и пользовательские сценарии |
+| 3 | [System architecture](../architecture/system-architecture.md) | Как компоненты складываются в управляемый контур |
+| 4 | [Open questions](../audit/open-questions.md) | Какие решения требуют управленческого выбора |
 
-| # | Документ | Зачем |
-|---|----------|-------|
-| 1 | [Executive overview](../overview/executive-overview.md) | Scope, in/out, stakeholders |
-| 2 | [PRD](../overview/prd.md) | Journeys, NFR из кода |
-| 3 | [System architecture](../architecture/system-architecture.md) | Context, compose, Mermaid flows |
-| 4 | [Data contracts](../generated/10-data-contracts-and-models.md) | DTOs, env, Postgres schema |
-| 5 | [Audit report](../audit/audit-report.md) | Confirmed / corrected / gaps |
-| 6 | [Open questions](../audit/open-questions.md) | Backlog валидации |
+**Ключевая мысль:** платформа не заменяет архитектурную функцию; она усиливает ее, делая знания доступными, ответы воспроизводимыми, а источники проверяемыми.
 
-**Диаграммы:** [System context](../legends/system-context.md) → [Cross-area runbook](../legends/cross-area-runbook.md).
+## Enterprise architect / главный архитектор
 
----
+**Цель:** увидеть, как система поддерживает архитектурное управление: от базы знаний до рекомендаций с источниками.
 
-## Backend engineer
+| Шаг | Документ | Что вынести |
+|-----|----------|-------------|
+| 1 | [Cheat sheet](cheat-sheet.md) | Карта платформы и терминов |
+| 2 | [System architecture](../architecture/system-architecture.md) | Слои: интерфейс, агент, tools, RAG, инфраструктура |
+| 3 | [search_kb](../retrieval/search-kb.md) | Как агент обращается к знаниям |
+| 4 | [similarity_search](../retrieval/similarity-search.md) | Как выбираются релевантные фрагменты |
+| 5 | [Audit report](../audit/audit-report.md) | Что подтверждено и где остаются риски |
 
-**Цель:** интеграция, execution paths, API.
+**Ключевая мысль:** RAG нужен не ради “поиска документов”, а ради управляемой аргументации: ответ должен иметь источник, область применимости и проверяемый след.
 
-| # | Документ | Зачем |
-|---|----------|-------|
-| 1 | [Cheat sheet](cheat-sheet.md) | Быстрая карта |
-| 2 | [System architecture](../architecture/system-architecture.md) | Container map |
-| 3 | [API & integration](../operations/api.md) | `POST /chat/agent`, health |
-| 4 | [Agent runtime](../runtime/agent-runtime.md) | `iter_agent_events` |
-| 5 | [Deep dive](../generated/14-deep-dive-priority-areas.md) | 6 critical paths |
-| 6 | [Memory](../memory/session-memory.md) | `session_id`, UI vs server |
-| 7 | [Ingestion worker](../ingestion/worker.md) + [pipeline](../ingestion/pipeline.md) | Async jobs |
-| 8 | [Troubleshooting map](troubleshooting-map.md) | Incident routing |
+## Product owner / владелец продукта
 
-**Smoke:** `scripts/smoke_chat_agent.ps1`, `scripts/smoke_m7.ps1` — см. [ops](../operations/ops-and-risks.md).
+**Цель:** понять текущий MVP, разницу с полноценным продуктовым интерфейсом и приоритеты развития.
 
----
+| Шаг | Документ | Что вынести |
+|-----|----------|-------------|
+| 1 | [PRD](../overview/prd.md) | Что входит в текущий продуктовый контур |
+| 2 | [Executive overview](../overview/executive-overview.md) | Пользовательская ценность |
+| 3 | [Operations risks](../operations/ops-and-risks.md) | Ограничения внедрения |
+| 4 | [Open questions](../audit/open-questions.md) | Backlog решений для продуктового развития |
 
-## ML / AI engineer
+**Ключевая мысль:** текущая платформа уже закрывает backend RAG+agent, но требует продуктовой оболочки: workspaces, загрузка документов, роли, настройки.
 
-**Цель:** retrieval quality, chunking, tool behavior.
+## Инженерная команда
 
-| # | Документ | Зачем |
-|---|----------|-------|
-| 1 | [similarity_search](../retrieval/similarity-search.md) | Threshold, Qdrant, embed |
-| 2 | [search_kb](../retrieval/search-kb.md) | Tool contract |
-| 3 | [Agent runtime](../runtime/agent-runtime.md) | Prompt, tool loop |
-| 4 | [Memory](../memory/session-memory.md) | Context assembly |
-| 5 | [Ingestion pipeline](../ingestion/pipeline.md) | chunk(220), embed batch |
-| 6 | [Retrieval legend](../legends/retrieval-similarity-search.md) | Diagram walkthrough |
+**Цель:** понять execution paths: как запрос превращается в ответ, а документ — в searchable knowledge.
 
-**Audit:** C3–C5 (embed path), R10 (no local fallback on agent path).
+| Шаг | Документ | Что вынести |
+|-----|----------|-------------|
+| 1 | [System architecture](../architecture/system-architecture.md) | Контейнерная и компонентная карта |
+| 2 | [API & integration](../operations/api.md) | Основные endpoint и их назначение |
+| 3 | [Agent runtime](../runtime/agent-runtime.md) | Tool loop, события SSE, финальный ответ |
+| 4 | [Ingestion pipeline](../ingestion/pipeline.md) | Parse → chunk → embed → index |
+| 5 | [Ingestion worker](../ingestion/worker.md) | Очередь заданий и статусы обработки |
+| 6 | [Deep dive](../generated/14-deep-dive-priority-areas.md) | Справочные пути для глубокого разбора |
 
----
+## ML / AI инженер
 
-## Ops / support engineer
+**Цель:** понять качество ответа: embeddings, retrieval, tool behavior, память и ограничения.
 
-**Цель:** health, compose, jobs, incident response.
+| Шаг | Документ | Что вынести |
+|-----|----------|-------------|
+| 1 | [Agent runtime](../runtime/agent-runtime.md) | Как LLM принимает решение о tool call |
+| 2 | [search_kb](../retrieval/search-kb.md) | Контракт инструмента поиска |
+| 3 | [similarity_search](../retrieval/similarity-search.md) | Семантический поиск и фильтрация |
+| 4 | [Memory](../memory/session-memory.md) | Контекст сессии не равен корпоративной памяти |
+| 5 | [Retrieval legend](../legends/retrieval-similarity-search.md) | Диаграмма поиска с пояснениями |
 
-| # | Документ | Зачем |
-|---|----------|-------|
-| 1 | [Ops & risks](../operations/ops-and-risks.md) | Compose, smoke, risk register |
-| 2 | [Troubleshooting map](troubleshooting-map.md) | «Куда смотреть если…» |
-| 3 | [Cross-area runbook](../legends/cross-area-runbook.md) | Query + ingest paths, failures |
-| 4 | [API health endpoints](../operations/api.md) | `/health/ready`, `/health/llm` |
-| 5 | [Ingestion worker](../ingestion/worker.md) | `running` / `failed` jobs |
-| 6 | [Ops & risks](../operations/ops-and-risks.md) | Compose, smoke concepts |
+## Эксплуатация / support
 
-**Confirmed:** readiness HTTP 200 even when `degraded` (audit C22).
+**Цель:** быстро определить, какой контур деградировал: приложение, модель, embeddings, Qdrant, Postgres, ingestion.
 
----
+| Шаг | Документ | Что вынести |
+|-----|----------|-------------|
+| 1 | [Ops & risks](../operations/ops-and-risks.md) | Health, риски и эксплуатационные сценарии |
+| 2 | [Troubleshooting map](troubleshooting-map.md) | Куда смотреть при типовых симптомах |
+| 3 | [API health endpoints](../operations/api.md) | Разница `/health/live` и `/health/ready` |
+| 4 | [Ingestion worker](../ingestion/worker.md) | Очередь, `running`, `done`, `failed` |
+| 5 | [Cross-area runbook](../legends/cross-area-runbook.md) | Связь запроса, ingestion и поиска |
 
-## Новый участник команды (junior / mid)
+## Новый участник команды
 
-**Цель:** за 1–2 дня понять систему без чтения всего `generated/`.
-
-| День | Документы |
-|------|-----------|
-| **День 1** | [index.md](../index.md) → [Cheat sheet](cheat-sheet.md) → [Executive overview](../overview/executive-overview.md) → [Architecture](../architecture/system-architecture.md) |
-| **День 2** | [Agent runtime](../runtime/agent-runtime.md) → [API](../operations/api.md) → [Legends index](../legends/) |
-| **День 3** | [Deep dive](../generated/14-deep-dive-priority-areas.md) → [Troubleshooting](troubleshooting-map.md) |
-
-**Практика:** поднять stack (`scripts/quick_start.ps1`), открыть `/ui`, прогнать `smoke_chat_agent.ps1`.
-
----
-
-## Executives / product (кратко)
-
-1. [Executive overview](../overview/executive-overview.md)
-2. [PRD](../overview/prd.md) — In-scope / Out-of-scope
-3. [Open questions](../audit/open-questions.md) — roadmap gaps
-4. [Open questions](../audit/open-questions.md) — top risks
-
----
+| День | Задача | Документы |
+|------|--------|-----------|
+| День 1 | Понять назначение и карту системы | [index](../index.md) → [cheat sheet](cheat-sheet.md) → [executive overview](../overview/executive-overview.md) |
+| День 2 | Разобрать agent runtime и RAG | [agent runtime](../runtime/agent-runtime.md) → [search_kb](../retrieval/search-kb.md) → [similarity_search](../retrieval/similarity-search.md) |
+| День 3 | Понять эксплуатацию | [API](../operations/api.md) → [worker](../ingestion/worker.md) → [troubleshooting](troubleshooting-map.md) |
 
 ## Связанные страницы
 
+- [Глоссарий](glossary.md)
+- [Архитектурная шпаргалка](cheat-sheet.md)
 - [Troubleshooting map](troubleshooting-map.md)
-- [Cheat sheet](cheat-sheet.md)
-- [Generated README](../generated/README.md)
+- [Generated reference](../generated/README.md)

@@ -1,77 +1,38 @@
-﻿# Генерированная документация ea-agent-platform
+﻿# Справочный слой учебного курса
 
-> **Читателям:** начните с [документационного landing page](../index.md) (GitHub Pages entry).  
-> Этот каталог — полный reverse-engineered source.
+Этот каталог содержит детальные материалы для тех, кто хочет глубже понять устройство платформы. Раньше он рассматривался как “generated” слой; в этой версии он отредактирован как справочник к учебному курсу.
 
-Дата генерации: `2026-06-07`.  
-Метод: reverse-engineering из актуального кода репозитория `ea-agent-platform` (implementation repo — not published here).
+Если вы впервые читаете документацию, начните не здесь, а с [главной страницы](../index.md), [маршрутов чтения](../navigation/reading-paths.md) и [глоссария](../navigation/glossary.md).
 
 ## Карта документов
 
-| # | Документ | Аудитория |
-|---|----------|-----------|
-| 01 | [01-executive-overview.md](01-executive-overview.md) | Stakeholders, tech leads |
-| 02 | [02-prd.md](02-prd.md) | Product, архитекторы |
-| 03 | [03-system-architecture.md](03-system-architecture.md) | Architects, backend |
-| 04 | [04-agent-runtime.md](04-agent-runtime.md) | AI/backend engineers |
-| 05 | [05-memory.md](05-memory.md) | Backend, AI |
-| 06 | [06-tools-search_kb.md](06-tools-search_kb.md) | Backend, AI |
-| 07 | [07-retrieval-similarity_search.md](07-retrieval-similarity_search.md) | Backend, ML |
-| 08 | [08-ingestion-worker.md](08-ingestion-worker.md) | Backend, ops |
-| 09 | [09-ingestion-pipeline.md](09-ingestion-pipeline.md) | Backend, data |
-| 10 | [10-data-contracts-and-models.md](10-data-contracts-and-models.md) | All engineers |
-| 11 | [11-api-and-integration-points.md](11-api-and-integration-points.md) | Integrators, frontend |
-| 12 | [12-ops-observability-and-risks.md](12-ops-observability-and-risks.md) | SRE, ops |
-| 13 | [13-open-questions.md](13-open-questions.md) | Все — backlog валидации |
-| 14 | [14-deep-dive-priority-areas.md](14-deep-dive-priority-areas.md) | **Deep dive:** runtime, memory, tools, retrieval, worker, pipeline |
-| 15 | [15-documentation-audit-report.md](15-documentation-audit-report.md) | **Audit:** confirmed / corrected / gaps |
+| # | Документ | Что объясняет |
+|---|----------|---------------|
+| 01 | [Executive overview](01-executive-overview.md) | Управленческая ценность агентной системы |
+| 02 | [PRD](02-prd.md) | Границы текущего MVP и продуктовые требования |
+| 03 | [System architecture](03-system-architecture.md) | Контуры платформы и их связи |
+| 04 | [Agent runtime](04-agent-runtime.md) | Цикл рассуждения агента и tool loop |
+| 05 | [Memory](05-memory.md) | Память сессии и отличие от базы знаний |
+| 06 | [search_kb](06-tools-search_kb.md) | Инструмент обращения к корпоративной базе знаний |
+| 07 | [similarity_search](07-retrieval-similarity_search.md) | Семантический поиск и citations |
+| 08 | [Ingestion worker](08-ingestion-worker.md) | Очередь обработки документов |
+| 09 | [Ingestion pipeline](09-ingestion-pipeline.md) | Документы → фрагменты → embeddings → индекс |
+| 10 | [Data contracts](10-data-contracts-and-models.md) | DTO, статусы, параметры и контракты |
+| 11 | [API](11-api-and-integration-points.md) | Chat, ingestion и health endpoints |
+| 12 | [Ops & risks](12-ops-observability-and-risks.md) | Наблюдаемость, зависимости, риски |
+| 13 | [Open questions](13-open-questions.md) | Что требует продуктового или архитектурного решения |
+| 14 | [Deep dive](14-deep-dive-priority-areas.md) | Сквозные сценарии для углубленного изучения |
+| 15 | [Audit report](15-documentation-audit-report.md) | Достоверность, ограничения и зоны проверки |
 
-## Рекомендуемый порядок чтения
+## Как использовать справочник
 
-### Executives / stakeholders
-1. `01-executive-overview.md`
-2. `02-prd.md` (разделы In-scope / Out-of-scope)
-3. `13-open-questions.md` (риски и gap)
-
-### Architects
-1. `01-executive-overview.md`
-2. `03-system-architecture.md`
-3. `04-agent-runtime.md`
-4. `10-data-contracts-and-models.md`
-5. `13-open-questions.md`
-
-### Backend engineers (onboarding)
-1. [14-deep-dive-priority-areas.md](14-deep-dive-priority-areas.md) — **start here** for execution paths
-2. `03-system-architecture.md`
-2. `11-api-and-integration-points.md`
-3. `04-agent-runtime.md`
-4. `09-ingestion-pipeline.md`
-5. `08-ingestion-worker.md`
-
-### ML / AI engineers
-1. `04-agent-runtime.md`
-2. `07-retrieval-similarity_search.md`
-3. `06-tools-search_kb.md`
-4. `05-memory.md`
-5. `10-data-contracts-and-models.md`
-
-### Operations / support
-1. `12-ops-observability-and-risks.md`
-2. `11-api-and-integration-points.md` (health endpoints)
-3. `08-ingestion-worker.md`
-4. `09-ingestion-pipeline.md`
-
-## Статус реализации (snapshot)
-
-| Фаза | Статус |
-|------|--------|
-| M0–M7 backend | ✅ COMPLETE |
-| Phase 2 P1–P4 product | ⬜ PROPOSED — see private implementation repository planning docs |
+- C-level и владельцам продукта достаточно документов 01–03 и 13.
+- Архитекторам полезны 03, 04, 06, 07, 10 и 13.
+- Инженерной команде нужны 04, 08, 09, 11 и 14.
+- Эксплуатации — 08, 11, 12 и troubleshooting map.
 
 ## Легенда достоверности
 
-В документах используются маркеры:
-
-- **Confirmed by code** — прямое подтверждение в коде/тестах
-- **Inferred** — логическое следствие из структуры, не явный runtime path
-- **Needs verification** — требует ручной проверки или уточнения с командой
+- **Подтверждено реализацией** — поведение отражает реализацию или smoke-проверки.
+- **Архитектурный вывод** — объяснение следует из структуры системы и требует проверки при изменениях.
+- **Требует проверки** — вопрос зависит от окружения, нагрузки или будущего продуктового решения.
