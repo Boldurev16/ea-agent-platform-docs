@@ -6,7 +6,7 @@
 
 ## С чего начать
 
-- Главная страница курса: [`docs/index.md`](docs/index.md)
+- Главная страница: [`docs/index.md`](docs/index.md)
 - Маршруты чтения по ролям: [`docs/navigation/reading-paths.md`](docs/navigation/reading-paths.md)
 - Архитектурная шпаргалка: [`docs/navigation/cheat-sheet.md`](docs/navigation/cheat-sheet.md)
 - Глоссарий: [`docs/navigation/glossary.md`](docs/navigation/glossary.md)
