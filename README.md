@@ -20,3 +20,17 @@
 - Справочные материалы в `docs/generated/` для ускоренной ориентации в системе.
 
 Документация сохраняет **архитектурную точность** и фокусируется на контрактном описании слоёв и потоков, без листинга кода. Это handbook для архитекторов и инженеров, которые строят или развивают enterprise‑agent платформу.
+
+## Как использовать handbook в проекте
+
+- Если вы строите LLM gateway с несколькими моделями, используйте разделы `docs/runtime/` и `docs/gateway/` как референс по слоям и data contracts.
+- Для RAG по корпоративной базе знаний — разделы `docs/memory/` и `docs/retrieval/`.
+- Для настройки агентной системы управления архитектурой — маршруты чтения в `docs/navigation/reading-paths.md`.
+
+- ## English summary
+
+This repository is a technical handbook for an enterprise AI agent platform:
+- LLM gateway and guardrails
+- RAG over an enterprise architecture knowledge base
+- document ingestion pipeline
+- agents for architecture management
